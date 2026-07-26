@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-27T00:00:00Z",
+  "title": "Design System: Prescription Assistant",
+  "extensions": {
+    "colorMeta": {
+      "bg": { "role": "neutral", "displayName": "Cool Mist", "canonical": "#f5f7fb" },
+      "surface": { "role": "neutral", "displayName": "Paper White", "canonical": "#ffffff" },
+      "surface-2": { "role": "neutral", "displayName": "Mist Fill", "canonical": "#eef1f8" },
+      "border": { "role": "neutral", "displayName": "Border Hairline", "canonical": "#e3e7f0" },
+      "border-strong": { "role": "neutral", "displayName": "Border Strong", "canonical": "#cdd3e2" },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#1b2029" },
+      "ink-dim": { "role": "neutral", "displayName": "Ink Dim", "canonical": "#5c6474" },
+      "ink-faint": { "role": "neutral", "displayName": "Ink Faint", "canonical": "#6b7280" },
+      "amber": { "role": "primary", "displayName": "Marigold Amber", "canonical": "#f5a524", "tonalRamp": ["#3d2600", "#6b4200", "#9c6100", "#c98006", "#dc8f10", "#f5a524", "#ffc561", "#ffe4b3"] },
+      "amber-dark": { "role": "primary", "displayName": "Amber Dark (hover)", "canonical": "#dc8f10" },
+      "amber-soft": { "role": "primary", "displayName": "Amber Soft (tint)", "canonical": "#fef2df" },
+      "teal": { "role": "secondary", "displayName": "Chart Teal", "canonical": "#12b3a3", "tonalRamp": ["#04302b", "#0a4f47", "#086b60", "#0e9c8d", "#12b3a3", "#4fcabe", "#8fddd5", "#d3f3ef"] },
+      "teal-soft": { "role": "secondary", "displayName": "Teal Soft (tint)", "canonical": "#e0f8f5" },
+      "violet": { "role": "tertiary", "displayName": "Signal Violet", "canonical": "#7c5cff", "tonalRamp": ["#1c1147", "#301f78", "#4a2fd6", "#6344ff", "#7c5cff", "#a389ff", "#c6b6ff", "#e7deff"] },
+      "violet-soft": { "role": "tertiary", "displayName": "Violet Soft (tint)", "canonical": "#efeaff" },
+      "violet-border": { "role": "tertiary", "displayName": "Violet Border", "canonical": "#e2d9ff" },
+      "danger": { "role": "semantic-error", "displayName": "Danger Red", "canonical": "#b42318" },
+      "danger-soft": { "role": "semantic-error", "displayName": "Danger Soft (tint)", "canonical": "#fdecea" }
+    },
+    "typographyMeta": {
+      "ui": { "displayName": "UI Body", "purpose": "All UI copy: headings, labels, body, buttons." },
+      "ui-heading": { "displayName": "UI Heading", "purpose": "Section titles and card headers; same face as body, 700 weight." },
+      "data": { "displayName": "Chart Data", "purpose": "Dates, dosages, drug names, timestamps only — never decorative." }
+    },
+    "shadows": [
+      { "name": "shadow-sm", "value": "0 1px 2px rgba(27,32,41,0.06)", "purpose": "Resting cards, record entries, suggestion chips." },
+      { "name": "shadow", "value": "0 8px 20px rgba(27,32,41,0.08), 0 2px 6px rgba(27,32,41,0.05)", "purpose": "Floating surfaces: the composer bar." }
+    ],
+    "motion": [],
+    "breakpoints": [
+      { "name": "rail-collapse", "value": "860px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Pill-shaped amber action button; the only fill color allowed to mean \"act on this.\"",
+      "html": "<button class=\"ds-btn-primary\">Save to knowledge base</button>",
+      "css": ".ds-btn-primary { background: #f5a524; color: #241a02; border: none; border-radius: 999px; padding: 9px 16px; font-family: 'Sora', system-ui, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease; } .ds-btn-primary:hover { background: #dc8f10; } .ds-btn-primary:focus-visible { outline: 2px solid #7c5cff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action: Refresh, Delete, Cancel, Enter manually.",
+      "html": "<button class=\"ds-btn-ghost\">Refresh</button>",
+      "css": ".ds-btn-ghost { background: #ffffff; color: #5c6474; border: 1px solid #cdd3e2; border-radius: 999px; padding: 9px 16px; font-family: 'Sora', system-ui, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease; } .ds-btn-ghost:hover { color: #1b2029; border-color: #5c6474; }"
+    },
+    {
+      "name": "Nav Tab (active, Ask)",
+      "kind": "nav",
+      "refersTo": "nav-tab-active-ask",
+      "description": "Rail navigation item in its active state — tinted background carries identity, never a border stripe.",
+      "html": "<button class=\"ds-nav-tab ds-nav-tab--active\"><span class=\"ds-nav-dot\"></span>Ask</button>",
+      "css": ".ds-nav-tab { display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px 13px; border-radius: 10px; background: transparent; border: none; font-family: 'Sora', system-ui, sans-serif; font-size: 13.5px; font-weight: 600; color: #5c6474; cursor: pointer; text-align: left; } .ds-nav-tab:hover { background: #eef1f8; color: #1b2029; } .ds-nav-tab--active { background: #efeaff; color: #4a2fd6; } .ds-nav-dot { width: 9px; height: 9px; border-radius: 50%; background: #7c5cff; flex-shrink: 0; }"
+    },
+    {
+      "name": "Record Card",
+      "kind": "card",
+      "refersTo": "record-card",
+      "description": "A saved prescription; the initials badge is the card's only color accent — no border-left stripe.",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card-head\"><div class=\"ds-badge\">DA</div><div><h3>Dr. Alvarez</h3><span class=\"ds-date\">2026-06-14</span></div></div></article>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #e3e7f0; border-radius: 16px; box-shadow: 0 1px 2px rgba(27,32,41,0.06); overflow: hidden; font-family: 'Sora', system-ui, sans-serif; } .ds-card-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; } .ds-badge { width: 34px; height: 34px; border-radius: 10px; background: #e0f8f5; color: #086b60; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex-shrink: 0; } .ds-card-head h3 { margin: 0; font-size: 14.5px; font-weight: 700; color: #1b2029; } .ds-date { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; color: #6b7280; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "field-input",
+      "description": "Form field with mist fill; focus ring is the one place violet appears outside the Ask surface.",
+      "html": "<input class=\"ds-input\" placeholder=\"Dr. ...\" />",
+      "css": ".ds-input { width: 100%; border: 1px solid #cdd3e2; border-radius: 10px; background: #eef1f8; font-family: 'Sora', system-ui, sans-serif; font-size: 14px; color: #1b2029; padding: 9px 12px; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; } .ds-input::placeholder { color: #6b7280; } .ds-input:focus { border-color: #7c5cff; background: #ffffff; box-shadow: 0 0 0 3px #efeaff; }"
+    },
+    {
+      "name": "Source Tag",
+      "kind": "chip",
+      "refersTo": "source-tag",
+      "description": "Always teal regardless of context — means \"this came from a saved record.\"",
+      "html": "<span class=\"ds-chip-source\">Dr. Alvarez · 2026-06-14</span>",
+      "css": ".ds-chip-source { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.02em; background: #e0f8f5; color: #086b60; padding: 3px 9px; border-radius: 999px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Family Chart",
+    "overview": "The product is a household's own private prescription record, not a chatbot with a health-app skin. Its visual system reads as a bright, tabbed record: distinct labeled sections (Ask, Records, Upload) the way a family binder has labeled dividers, rendered in clean modern surfaces rather than literal paper texture. Three bright, distinct hues identify the sections — violet for Ask, teal for Records, amber for Upload — with amber carrying the brand mark and every primary action across the whole app. Everything else stays quiet: white surfaces, soft cool-gray neutrals, no gradients, no dark mode as a default identity. This direction replaced an earlier \"medical chart\" concept executed in manila and clinical red; that palette was explicitly rejected for feeling dark and institutional. The rejection is durable: no red as a brand or primary-accent color, no cream/manila/tan grounds. Red is reserved strictly for error/danger semantics, never for identity or primary actions.",
+    "keyCharacteristics": [
+      "Bright white surfaces on a soft cool-gray page background — never cream, tan, or dark.",
+      "One brand accent (amber) for primary actions and the mark; violet and teal are section-identity colors only, never primary-action colors.",
+      "One UI type family (Sora) carries every weight of hierarchy; a monospace (IBM Plex Mono) is reserved strictly for chart data.",
+      "Soft, generous rounding (pills for actions and chips, 16px cards) — friendly without being childish.",
+      "Chat renders as dated, sourced \"chart entries,\" not chat bubbles with a personality."
+    ],
+    "rules": [
+      { "name": "The No-Red Rule", "body": "Red (#b42318) exists only to mean \"something is wrong\" — validation errors, failed loads, destructive-hover states. It never appears as a brand, accent, or decorative color.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "Amber is the only color allowed to mean \"act on this.\" Violet and teal identify content and sections; they never appear on a primary call-to-action button.", "section": "colors" },
+      { "name": "The One Family Rule", "body": "Sora carries 100% of UI copy; a second UI-text face never appears. IBM Plex Mono is the only exception, and only for literal record data.", "section": "typography" },
+      { "name": "The Soft Rest Rule", "body": "Nothing at rest uses a shadow stronger than shadow-sm. A heavier shadow always means \"this is floating above the page,\" never decoration on a static card.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep amber as the only \"act on this\" color; every primary button and the brand mark stay amber.",
+      "Do use violet and teal exclusively as section/content identity — never as button fills.",
+      "Do set dates, dosages, drug names, and timestamps in IBM Plex Mono; everything else stays in Sora.",
+      "Do carry a card or tab's color identity via a tinted background fill or small dot, never a border stripe."
+    ],
+    "donts": [
+      "Don't introduce red, manila, cream, or dark-mode-as-default — this direction was chosen specifically to replace that palette.",
+      "Don't add a colored border-left/border-right accent to cards, list items, or callouts.",
+      "Don't use the mono face for anything that isn't literal record data.",
+      "Don't add a second UI display face; hierarchy comes from weight and size within Sora."
+    ]
+  }
+}
