@@ -23,6 +23,16 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Generated architecture guide + book renders
+ARCHITECTURE_GUIDE.md
+BOOK.html
+BOOK-crimson.html
+diagrams/
+diagrams-crimson/
+
+# Kept locally only, not published to the remote
+Prescription_Assistant_Implementation_Guide.html
+
 # impeccable-live-ignore-start
 .impeccable/hook.cache.json
 .impeccable/hook.pending.json
