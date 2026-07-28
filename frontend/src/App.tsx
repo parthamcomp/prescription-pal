@@ -293,7 +293,7 @@ export default function App() {
     "What antibiotics has my child taken?",
     "Summarise the last visit's diagnosis",
     "Which medicines were given for fever?",
-    "List the doctors we have visited",
+    "Who was the doctor for the last visit?",
   ];
 
   return (
