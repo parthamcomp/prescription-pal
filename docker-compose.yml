@@ -1,18 +1,92 @@
 services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=app
+      - POSTGRES_DB=app
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
   backend:
-    build: ./backend
-    ports: 
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
-      - ./data/hf-cache:/root/.cache/huggingface
+      # Read-only mount of the legacy JSON so the import script can reach it.
+      - ./data:/app/data:ro
     environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - OLLAMA_MODEL=llama3.2
-      - DATA_DIR=/app/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - DATABASE_URL=postgresql+asyncpg://app:app@db:5432/app
+      - REDIS_URL=redis://redis:6379
+      - STORAGE_ENDPOINT=http://minio:9000
+      - STORAGE_REGION=us-east-1
+      - STORAGE_BUCKET=prescriptions
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=minioadmin
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      - OPENAI_EMBED_MODEL=${OPENAI_EMBED_MODEL:-text-embedding-3-small}
+      - JWT_SECRET=${JWT_SECRET:-dev-insecure-change-me}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
     restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://app:app@db:5432/app
+      - REDIS_URL=redis://redis:6379
+      - STORAGE_ENDPOINT=http://minio:9000
+      - STORAGE_REGION=us-east-1
+      - STORAGE_BUCKET=prescriptions
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=minioadmin
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      - OPENAI_EMBED_MODEL=${OPENAI_EMBED_MODEL:-text-embedding-3-small}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    restart: unless-stopped
+
   frontend:
     build: ./frontend
     ports:
@@ -20,3 +94,16 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:

@@ -3,9 +3,31 @@ uvicorn[standard]==0.34.0
 python-multipart==0.0.20
 pydantic==2.10.4
 pydantic-settings==2.7.0
+email-validator==2.2.0
 httpx==0.28.1
-chromadb==0.6.3
-sentence-transformers==3.3.1
+
+# Database (async) + migrations + pgvector
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+pgvector==0.3.6
+
+# Hosted LLM + embeddings
+openai==1.59.2
+
+# Async task queue + cache
+arq==0.26.1
+redis==5.2.1
+
+# Object storage (S3 / Cloudflare R2 / MinIO)
+boto3==1.35.90
+
+# Auth
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+
+# OCR (used by the worker only)
 pytesseract==0.3.13
 Pillow==11.1.0
 python-dateutil==2.9.0.post0

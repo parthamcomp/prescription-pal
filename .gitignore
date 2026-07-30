@@ -17,6 +17,10 @@ dist/
 # Environment
 .env
 
+# curl cookie jars from manual API testing
+cookies.txt
+cookies2.txt
+
 # Editor / OS
 .vscode/
 .idea/

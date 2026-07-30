@@ -1,28 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ChatMessage,
   Medication,
-  OCRResult,
   Prescription,
   emptyMedication,
   emptyPrescription,
   prescriptionsApi,
 } from "./api";
+import { useAuth } from "./auth/AuthContext";
 
 type Tab = "ask" | "records" | "upload";
-
-type DisplayMessage = ChatMessage & { time: string };
-
-function now() {
-  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function initials(name: string) {
-  const parts = name.replace(/^Dr\.?\s*/i, "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "??";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 interface FormProps {
   value: Prescription;
@@ -110,7 +98,7 @@ function PrescriptionForm({ value, onChange }: FormProps) {
       <div className="meds">
         <div className="meds-head">
           <span>Medications</span>
-          <button type="button" className="btn ghost" onClick={addMed}>
+          <button type="button" className="ghost" onClick={addMed}>
             + Add medication
           </button>
         </div>
@@ -138,7 +126,7 @@ function PrescriptionForm({ value, onChange }: FormProps) {
             />
             <button
               type="button"
-              className="icon-btn"
+              className="ghost danger"
               onClick={() => removeMed(i)}
               aria-label="Remove medication"
             >
@@ -161,10 +149,11 @@ function PrescriptionForm({ value, onChange }: FormProps) {
 }
 
 export default function App() {
+  const { user, logout } = useAuth();
   const [tab, setTab] = useState<Tab>("ask");
 
   // chat state
-  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -180,6 +169,7 @@ export default function App() {
   const [draft, setDraft] = useState<Prescription | null>(null);
   const [manualDraft, setManualDraft] = useState<Prescription | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
 
@@ -200,17 +190,17 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, chatLoading]);
 
-  const askQuestion = async (text?: string) => {
-    const q = (text ?? question).trim();
+  const askQuestion = async () => {
+    const q = question.trim();
     if (!q || chatLoading) return;
-    setMessages((m) => [...m, { role: "user", content: q, time: now() }]);
+    setMessages((m) => [...m, { role: "user", content: q }]);
     setQuestion("");
     setChatLoading(true);
     try {
       const res = await prescriptionsApi.chat(q);
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: res.answer, sources: res.sources, time: now() },
+        { role: "assistant", content: res.answer, sources: res.sources },
       ]);
     } catch (e) {
       setMessages((m) => [
@@ -219,7 +209,6 @@ export default function App() {
           role: "assistant",
           content:
             e instanceof Error ? `Error: ${e.message}` : "Something went wrong.",
-          time: now(),
         },
       ]);
     } finally {
@@ -240,10 +229,11 @@ export default function App() {
     if (!uploadFile) return;
     setUploadBusy(true);
     setUploadError("");
+    setOcrStatus("queued");
     try {
-      const result: OCRResult = await prescriptionsApi.ocr(uploadFile);
-      setOcrText(result.raw_text);
-      const extracted = result.extracted;
+      const job = await prescriptionsApi.ocrAndWait(uploadFile, setOcrStatus);
+      setOcrText(job.raw_text);
+      const extracted = (job.extracted ?? emptyPrescription()) as Prescription;
       if (!extracted.medications || extracted.medications.length === 0) {
         extracted.medications = [emptyMedication()];
       }
@@ -252,6 +242,7 @@ export default function App() {
       setUploadError(e instanceof Error ? e.message : "OCR failed");
     } finally {
       setUploadBusy(false);
+      setOcrStatus("");
     }
   };
 
@@ -298,74 +289,100 @@ export default function App() {
 
   return (
     <div className="app">
-      <aside className="rail">
+      <aside className="sidebar">
         <div className="brand">
-          <span className="mark">Rx</span>
-          <div className="brand-text">
+          <div className="logo">Rx</div>
+          <div>
             <h1>Prescription Assistant</h1>
-            <p>local &amp; private</p>
+            <p>Your knowledge base</p>
           </div>
         </div>
-        <nav className="nav">
-          <button
-            className={`nav-tab ${tab === "ask" ? "active" : ""}`}
-            data-tab="ask"
-            onClick={() => setTab("ask")}
-          >
-            <span className="nav-dot" />
-            Ask
+
+        <div>
+          <div className="section-label">Sections</div>
+          <div className="nav">
+            <button
+              className={`nav-card ${tab === "ask" ? "active" : ""}`}
+              onClick={() => setTab("ask")}
+            >
+              <div className="name">
+                <span className="nav-dot" />
+                Ask
+              </div>
+              <div className="desc">Chat with your saved prescriptions</div>
+            </button>
+            <button
+              className={`nav-card ${tab === "records" ? "active" : ""}`}
+              onClick={() => setTab("records")}
+            >
+              <div className="name">
+                <span className="nav-dot" />
+                Records
+              </div>
+              <div className="desc">Browse and manage saved records</div>
+            </button>
+            <button
+              className={`nav-card ${tab === "upload" ? "active" : ""}`}
+              onClick={() => setTab("upload")}
+            >
+              <div className="name">
+                <span className="nav-dot" />
+                Upload
+              </div>
+              <div className="desc">Add a prescription by photo or form</div>
+            </button>
+          </div>
+        </div>
+
+        <div className="account">
+          <Link to="/profile" className="account-info" title="View profile">
+            <span className="account-avatar">
+              {(user?.display_name || user?.email || "?")
+                .charAt(0)
+                .toUpperCase()}
+            </span>
+            <span className="account-name">
+              {user?.display_name || user?.email}
+            </span>
+          </Link>
+          <button className="ghost" onClick={logout}>
+            Sign out
           </button>
-          <button
-            className={`nav-tab ${tab === "records" ? "active" : ""}`}
-            data-tab="records"
-            onClick={() => setTab("records")}
-          >
-            <span className="nav-dot" />
-            Records
-          </button>
-          <button
-            className={`nav-tab ${tab === "upload" ? "active" : ""}`}
-            data-tab="upload"
-            onClick={() => setTab("upload")}
-          >
-            <span className="nav-dot" />
-            Upload
-          </button>
-        </nav>
-        <div className="rail-footer">Runs locally · v1.0</div>
+        </div>
       </aside>
 
       <main className="main">
-        <div className="topline">
-          <h2>{tab === "ask" ? "Ask" : tab === "records" ? "Records" : "Upload"}</h2>
+        <header className="main-header">
+          <h2>
+            {tab === "ask" ? "Ask" : tab === "records" ? "Records" : "Upload"}
+          </h2>
           {tab === "records" ? (
-            <span className="stamp">{prescriptions.length} saved</span>
+            <span className="badge">{prescriptions.length} saved</span>
           ) : (
-            <span className="stamp">local &amp; private</span>
+            <span className="badge">Private to your account</span>
           )}
-        </div>
+        </header>
 
         {saveMessage && <div className="toast">{saveMessage}</div>}
 
         {tab === "ask" ? (
           <section className="chat">
-            <div className="thread-wrap">
+            <div className="messages">
               <div className="thread">
                 {messages.length === 0 && (
-                  <div className="empty-chart">
-                    <div className="empty-icon">✦</div>
-                    <h3>Nothing charted yet</h3>
+                  <div className="empty">
+                    <h3>How can I help?</h3>
                     <p>
                       Ask about your child&apos;s saved prescriptions &mdash;
                       diagnoses, medications, or past visits.
                     </p>
-                    <div className="quick-stamps">
+                    <div className="suggestions">
                       {suggestions.map((s, i) => (
                         <button
                           type="button"
                           key={i}
-                          className="quick-stamp"
-                          onClick={() => askQuestion(s)}
+                          className="suggestion"
+                          onClick={() => setQuestion(s)}
                         >
                           {s}
                         </button>
@@ -374,39 +391,35 @@ export default function App() {
                   </div>
                 )}
                 {messages.map((m, i) => (
-                  <div key={i} className={`entry ${m.role}`}>
-                    <div className="entry-head">
-                      <span>{m.role === "user" ? "You" : "Chart entry"}</span>
-                      <span>{m.time}</span>
+                  <div key={i} className={`msg ${m.role}`}>
+                    <div className={`avatar ${m.role}`}>
+                      {m.role === "user" ? "You" : "Rx"}
                     </div>
-                    <div className="entry-body">
+                    <div className="bubble">
                       {m.content}
+                      {m.sources && m.sources.length > 0 && (
+                        <div className="sources">
+                          {m.sources.map((s, j) => (
+                            <span key={j} className="chip">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {m.sources && m.sources.length > 0 && (
-                      <div className="entry-sources">
-                        {m.sources.map((s, j) => (
-                          <span key={j} className="source-tag">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ))}
                 {chatLoading && (
-                  <div className="entry assistant">
-                    <div className="entry-head">
-                      <span>Chart entry</span>
-                      <span>{now()}</span>
-                    </div>
-                    <div className="entry-body typing">Thinking…</div>
+                  <div className="msg assistant">
+                    <div className="avatar assistant">Rx</div>
+                    <div className="bubble typing">Thinking…</div>
                   </div>
                 )}
                 <div ref={chatEndRef} />
               </div>
             </div>
-            <div className="composer-bar">
-              <div className="composer-row">
+            <div className="composer-wrap">
+              <div className="composer">
                 <input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
@@ -415,14 +428,14 @@ export default function App() {
                 />
                 <button
                   className="send-btn"
-                  onClick={() => askQuestion()}
+                  onClick={askQuestion}
                   disabled={chatLoading}
                   title="Send"
                   aria-label="Send"
                 >
                   <svg
-                    width="16"
-                    height="16"
+                    width="18"
+                    height="18"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -434,189 +447,164 @@ export default function App() {
                   </svg>
                 </button>
               </div>
-              <p className="composer-note">
-                Runs locally · Not medical advice · Consult a healthcare
-                professional
-              </p>
             </div>
           </section>
         ) : (
-          <div className="page-scroll">
-            <div className="page-inner">
-              {tab === "records" && (
-                <section>
-                  <div className="toolbar">
-                    <h3>{prescriptions.length} saved entries</h3>
-                    <button className="btn ghost" onClick={loadPrescriptions}>
-                      Refresh
-                    </button>
-                  </div>
-                  {recordsError && <div className="error">{recordsError}</div>}
-                  {prescriptions.length === 0 ? (
-                    <div className="empty-chart">
-                      <p>No records yet. Use the Upload tab to add one.</p>
-                    </div>
-                  ) : (
-                    <div className="cards">
-                      {prescriptions.map((p) => (
-                        <article className="chart-card" key={p.id}>
-                          <div className="chart-card-head">
-                            <div className="who">
-                              <div className="who-badge">
-                                {initials(p.doctor_name || "Unknown")}
-                              </div>
-                              <div>
-                                <h3>{p.doctor_name || "Unknown doctor"}</h3>
-                                <span className="tag-date">
-                                  {p.date_of_visit || "No date"}
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              className="btn ghost danger"
-                              onClick={() => deletePrescription(p.id)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                          <div className="chart-card-body">
-                            {p.complaint && (
-                              <p>
-                                <strong>Complaint:</strong> {p.complaint}
-                              </p>
-                            )}
-                            {p.diagnosis && (
-                              <p>
-                                <strong>Diagnosis:</strong> {p.diagnosis}
-                              </p>
-                            )}
-                            {p.medications.length > 0 && (
-                              <table className="mar-table">
-                                <thead>
-                                  <tr>
-                                    <th>Medication</th>
-                                    <th>Dose</th>
-                                    <th>Frequency</th>
-                                    <th>Duration</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {p.medications.map((m, i) => (
-                                    <tr key={i}>
-                                      <td>{m.name}</td>
-                                      <td>{m.dosage}</td>
-                                      <td>{m.frequency}</td>
-                                      <td>{m.duration}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
-                            {(p.child_age || p.child_weight) && (
-                              <div className="card-meta">
-                                {p.child_age && <span>Age: {p.child_age}</span>}
-                                {p.child_weight && <span>Weight: {p.child_weight}</span>}
-                              </div>
-                            )}
-                            {p.additional_notes && (
-                              <p className="notes">{p.additional_notes}</p>
-                            )}
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              )}
-
-              {tab === "upload" && (
-                <section>
-                  <div className="toolbar">
-                    <h3>Add a prescription</h3>
-                    {!manualDraft && !draft && (
+          <div className="content--page">
+            <div className="page">
+            {tab === "records" && (
+              <section className="panel">
+            <div className="panel-head">
+              <h2>Saved Prescriptions</h2>
+              <button className="ghost" onClick={loadPrescriptions}>
+                Refresh
+              </button>
+            </div>
+            {recordsError && <div className="error">{recordsError}</div>}
+            {prescriptions.length === 0 ? (
+              <div className="empty">
+                <p>No records yet. Use the Upload tab to add one.</p>
+              </div>
+            ) : (
+              <div className="cards">
+                {prescriptions.map((p) => (
+                  <article className="card" key={p.id}>
+                    <div className="card-head">
+                      <div>
+                        <h3>{p.doctor_name || "Unknown doctor"}</h3>
+                        <span className="date">
+                          {p.date_of_visit || "No date"}
+                        </span>
+                      </div>
                       <button
-                        className="btn ghost"
-                        onClick={() => setManualDraft(emptyPrescription())}
+                        className="ghost danger"
+                        onClick={() => deletePrescription(p.id)}
                       >
-                        Enter manually
+                        Delete
                       </button>
-                    )}
-                  </div>
-
-                  {uploadError && <div className="error">{uploadError}</div>}
-
-                  {manualDraft ? (
-                    <div className="form-card">
-                      <PrescriptionForm value={manualDraft} onChange={setManualDraft} />
-                      <div className="actions">
-                        <button
-                          className="btn"
-                          onClick={() => saveDraft(manualDraft, () => setManualDraft(null))}
-                          disabled={uploadBusy}
-                        >
-                          Save to knowledge base
-                        </button>
-                        <button className="btn ghost" onClick={() => setManualDraft(null)}>
-                          Cancel
-                        </button>
-                      </div>
                     </div>
-                  ) : (
-                    <>
-                      <div className="form-card">
-                        <div className="uploader">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleFileSelect(e.target.files?.[0] ?? null)
-                            }
-                          />
-                          {previewUrl && (
-                            <img className="preview" src={previewUrl} alt="preview" />
-                          )}
-                          {uploadFile && !draft && (
-                            <button className="btn" onClick={runOcr} disabled={uploadBusy}>
-                              {uploadBusy ? "Extracting…" : "Extract with OCR"}
-                            </button>
-                          )}
-                        </div>
+                    {p.complaint && (
+                      <p>
+                        <strong>Complaint:</strong> {p.complaint}
+                      </p>
+                    )}
+                    {p.diagnosis && (
+                      <p>
+                        <strong>Diagnosis:</strong> {p.diagnosis}
+                      </p>
+                    )}
+                    {p.medications.length > 0 && (
+                      <ul className="med-list">
+                        {p.medications.map((m, i) => (
+                          <li key={i}>
+                            <strong>{m.name}</strong>
+                            {[m.dosage, m.frequency, m.duration]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="card-meta">
+                      {p.child_age && <span>Age: {p.child_age}</span>}
+                      {p.child_weight && <span>Weight: {p.child_weight}</span>}
+                    </div>
+                    {p.additional_notes && (
+                      <p className="notes">{p.additional_notes}</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
-                        {ocrText && (
-                          <details className="raw">
-                            <summary>Raw OCR text</summary>
-                            <pre>{ocrText}</pre>
-                          </details>
-                        )}
-                      </div>
-
-                      {draft && (
-                        <div className="form-card" style={{ marginTop: 14 }}>
-                          <p className="hint">Review and correct before saving:</p>
-                          <PrescriptionForm value={draft} onChange={setDraft} />
-                          <div className="actions">
-                            <button
-                              className="btn"
-                              onClick={() => saveDraft(draft, clearUpload)}
-                              disabled={uploadBusy}
-                            >
-                              Save to knowledge base
-                            </button>
-                            <button className="btn ghost" onClick={clearUpload}>
-                              Discard
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </section>
+        {tab === "upload" && (
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Add a Prescription</h2>
+              {!manualDraft && !draft && (
+                <button
+                  className="ghost"
+                  onClick={() => setManualDraft(emptyPrescription())}
+                >
+                  Enter manually
+                </button>
               )}
+            </div>
 
-              <footer className="footer">
-                Runs locally · Not medical advice · Consult a healthcare
-                professional
-              </footer>
+            {uploadError && <div className="error">{uploadError}</div>}
+
+            {manualDraft ? (
+              <>
+                <PrescriptionForm value={manualDraft} onChange={setManualDraft} />
+                <div className="actions">
+                  <button
+                    onClick={() => saveDraft(manualDraft, () => setManualDraft(null))}
+                    disabled={uploadBusy}
+                  >
+                    Save to knowledge base
+                  </button>
+                  <button className="ghost" onClick={() => setManualDraft(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="uploader">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      handleFileSelect(e.target.files?.[0] ?? null)
+                    }
+                  />
+                  {previewUrl && (
+                    <img className="preview" src={previewUrl} alt="preview" />
+                  )}
+                  {uploadFile && !draft && (
+                    <button onClick={runOcr} disabled={uploadBusy}>
+                      {uploadBusy
+                        ? ocrStatus === "processing"
+                          ? "Processing…"
+                          : ocrStatus === "queued"
+                          ? "Queued…"
+                          : "Extracting…"
+                        : "Extract with OCR"}
+                    </button>
+                  )}
+                </div>
+
+                {ocrText && (
+                  <details className="raw">
+                    <summary>Raw OCR text</summary>
+                    <pre>{ocrText}</pre>
+                  </details>
+                )}
+
+                {draft && (
+                  <>
+                    <p className="hint">Review and correct before saving:</p>
+                    <PrescriptionForm value={draft} onChange={setDraft} />
+                    <div className="actions">
+                      <button
+                        onClick={() => saveDraft(draft, clearUpload)}
+                        disabled={uploadBusy}
+                      >
+                        Save to knowledge base
+                      </button>
+                      <button className="ghost" onClick={clearUpload}>
+                        Discard
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </section>
+            )}
+
             </div>
           </div>
         )}
