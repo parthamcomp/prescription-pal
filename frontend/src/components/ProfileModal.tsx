@@ -1,0 +1,303 @@
+import { useEffect, useRef, useState } from "react";
+import { accountApi } from "../api";
+import { useAuth } from "../auth/AuthContext";
+
+interface ProfileModalProps {
+  onClose: () => void;
+  recordCount: number;
+  medicationCount: number;
+}
+
+export default function ProfileModal({
+  onClose,
+  recordCount,
+  medicationCount,
+}: ProfileModalProps) {
+  const { user, logout, refreshUser } = useAuth();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(user?.display_name || "");
+  const [nameBusy, setNameBusy] = useState(false);
+
+  const [editingPassword, setEditingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordDone, setPasswordDone] = useState(false);
+
+  const [deleteStep, setDeleteStep] = useState<"idle" | "confirm">("idle");
+  const [deleteText, setDeleteText] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  // Focus trap + Esc/click-outside + return focus to the trigger on close.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button, input, a[href], [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose]);
+
+  const initial = (user?.display_name || user?.email || "?").charAt(0).toUpperCase();
+
+  const saveName = async () => {
+    const name = nameDraft.trim();
+    setNameBusy(true);
+    try {
+      await accountApi.updateProfile(name);
+      await refreshUser();
+      setEditingName(false);
+    } catch {
+      // keep the field open with whatever the user typed - inline error
+      // isn't in the spec here, so just leave editing mode active
+    } finally {
+      setNameBusy(false);
+    }
+  };
+
+  const savePassword = async () => {
+    setPasswordError("");
+    if (newPassword.length < 10) {
+      setPasswordError("New password must be at least 10 characters.");
+      return;
+    }
+    setPasswordBusy(true);
+    try {
+      await accountApi.changePassword(currentPassword, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setEditingPassword(false);
+      setPasswordDone(true);
+      await refreshUser();
+      setTimeout(() => setPasswordDone(false), 3000);
+    } catch (e) {
+      setPasswordError(e instanceof Error ? e.message : "Couldn't change password");
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setDeleteError("");
+    setDeleteBusy(true);
+    try {
+      await accountApi.deleteAccount(deleteText);
+      await logout();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Couldn't delete account");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const passwordChangedLabel = user?.password_changed_at
+    ? `Changed ${new Date(user.password_changed_at).toLocaleDateString()}`
+    : user?.created_at
+    ? `Set when you registered`
+    : "";
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal profile-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-modal-name"
+        tabIndex={-1}
+        ref={dialogRef}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head profile-modal-head">
+          <div className="avatar-tile profile-modal-avatar">{initial}</div>
+          <div className="profile-modal-headtext">
+            <div id="profile-modal-name" className="name">
+              {user?.display_name || user?.email}
+            </div>
+            <div className="email">{user?.email}</div>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <div className="modal-body profile-modal-body">
+          <div className="profile-stats">
+            <div className="fact-cell">
+              <div className="fact-label">RECORDS</div>
+              <div className="fact-value">{recordCount}</div>
+            </div>
+            <div className="fact-cell">
+              <div className="fact-label">MEDICATIONS</div>
+              <div className="fact-value">{medicationCount}</div>
+            </div>
+          </div>
+
+          <div className="profile-section">
+            <div className="profile-section-heading">ACCOUNT</div>
+
+            <div className="profile-row">
+              <span className="profile-label">Name</span>
+              {editingName ? (
+                <span className="profile-inline-edit">
+                  <input
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    autoFocus
+                  />
+                  <button className="profile-row-action" onClick={saveName} disabled={nameBusy}>
+                    Save
+                  </button>
+                </span>
+              ) : (
+                <>
+                  <span>{user?.display_name || "—"}</span>
+                  <button
+                    className="profile-row-action"
+                    onClick={() => {
+                      setNameDraft(user?.display_name || "");
+                      setEditingName(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="profile-row">
+              <span className="profile-label">Email</span>
+              <span>{user?.email}</span>
+            </div>
+
+            <div className="profile-row">
+              <span className="profile-label">Password</span>
+              {editingPassword ? (
+                <span className="profile-inline-edit password">
+                  <input
+                    type="password"
+                    placeholder="Current password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    autoFocus
+                  />
+                  <input
+                    type="password"
+                    placeholder="New password (10+ chars)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <button
+                    className="profile-row-action"
+                    onClick={savePassword}
+                    disabled={passwordBusy}
+                  >
+                    Save
+                  </button>
+                </span>
+              ) : (
+                <>
+                  <span>{passwordDone ? "Updated" : passwordChangedLabel}</span>
+                  <button
+                    className="profile-row-action"
+                    onClick={() => setEditingPassword(true)}
+                  >
+                    Change
+                  </button>
+                </>
+              )}
+            </div>
+            {passwordError && <p className="field-hint error-text">{passwordError}</p>}
+          </div>
+
+          <div className="profile-data-note">
+            <span className="profile-data-icon">✓</span>
+            <p>
+              Records are encrypted at rest and never used to train anything. Only you
+              can read them.
+            </p>
+          </div>
+
+          <div className="profile-data-actions">
+            <button className="ghost" onClick={() => accountApi.exportData()}>
+              Export my records
+            </button>
+            {deleteStep === "idle" ? (
+              <button
+                className="danger-btn"
+                onClick={() => setDeleteStep("confirm")}
+              >
+                Delete everything
+              </button>
+            ) : null}
+          </div>
+
+          {deleteStep === "confirm" && (
+            <div className="delete-confirm">
+              <p>
+                This permanently deletes your account and every record in it. Type{" "}
+                <strong>delete my account</strong> to confirm.
+              </p>
+              <input
+                value={deleteText}
+                onChange={(e) => setDeleteText(e.target.value)}
+                placeholder="delete my account"
+              />
+              {deleteError && <p className="field-hint error-text">{deleteError}</p>}
+              <div className="delete-confirm-actions">
+                <button
+                  className="danger-btn"
+                  onClick={confirmDelete}
+                  disabled={
+                    deleteBusy || deleteText.trim().toLowerCase() !== "delete my account"
+                  }
+                >
+                  Permanently delete
+                </button>
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    setDeleteStep("idle");
+                    setDeleteText("");
+                    setDeleteError("");
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button className="signout-full" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

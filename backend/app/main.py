@@ -12,7 +12,16 @@ from app.logging_conf import setup_logging
 from app.metrics import metrics
 from app.models_db import User
 from app.queue import close_pool
-from app.routers import auth, chat, children, jobs, ocr, prescriptions
+from app.routers import (
+    account,
+    auth,
+    chat,
+    children,
+    jobs,
+    medications,
+    ocr,
+    prescriptions,
+)
 from app.services.budget import budget
 from app.services.objects import ensure_bucket
 
@@ -72,6 +81,8 @@ app.include_router(prescriptions.router)
 app.include_router(chat.router)
 app.include_router(ocr.router)
 app.include_router(jobs.router)
+app.include_router(medications.router)
+app.include_router(account.router)
 
 
 @app.get("/health")

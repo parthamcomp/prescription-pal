@@ -1,177 +1,84 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { ReactElement, useEffect, useState } from "react";
 import {
-  ChatMessage,
-  Medication,
-  Prescription,
-  emptyMedication,
-  emptyPrescription,
-  prescriptionsApi,
-} from "./api";
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+import { Med, Prescription, medicationsApi, prescriptionsApi } from "./api";
 import { useAuth } from "./auth/AuthContext";
+import Logo from "./components/Logo";
+import ProfileModal from "./components/ProfileModal";
+import { MED_COLOR_HEX, pluralize } from "./lib/format";
+import AskView from "./views/AskView";
+import RecordsView from "./views/RecordsView";
+import UploadView from "./views/UploadView";
 
 type Tab = "ask" | "records" | "upload";
 
-interface FormProps {
-  value: Prescription;
-  onChange: (p: Prescription) => void;
+function AskIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 5.5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3.5V13.5H5a2 2 0 0 1-2-2Z" />
+    </svg>
+  );
 }
 
-function PrescriptionForm({ value, onChange }: FormProps) {
-  const set = <K extends keyof Prescription>(key: K, v: Prescription[K]) =>
-    onChange({ ...value, [key]: v });
-
-  const setMed = (i: number, key: keyof Medication, v: string) => {
-    const medications = value.medications.map((m, idx) =>
-      idx === i ? { ...m, [key]: v } : m
-    );
-    onChange({ ...value, medications });
-  };
-
-  const addMed = () =>
-    onChange({ ...value, medications: [...value.medications, emptyMedication()] });
-
-  const removeMed = (i: number) =>
-    onChange({
-      ...value,
-      medications: value.medications.filter((_, idx) => idx !== i),
-    });
-
+function RecordsIcon({ color }: { color: string }) {
   return (
-    <div className="form">
-      <div className="grid2">
-        <label>
-          Doctor name
-          <input
-            value={value.doctor_name}
-            onChange={(e) => set("doctor_name", e.target.value)}
-            placeholder="Dr. ..."
-          />
-        </label>
-        <label>
-          Date of visit
-          <input
-            type="date"
-            value={value.date_of_visit ?? ""}
-            onChange={(e) => set("date_of_visit", e.target.value || null)}
-          />
-        </label>
-      </div>
-
-      <div className="grid2">
-        <label>
-          Child age
-          <input
-            value={value.child_age}
-            onChange={(e) => set("child_age", e.target.value)}
-            placeholder="e.g. 3 years"
-          />
-        </label>
-        <label>
-          Child weight
-          <input
-            value={value.child_weight}
-            onChange={(e) => set("child_weight", e.target.value)}
-            placeholder="e.g. 14 kg"
-          />
-        </label>
-      </div>
-
-      <label>
-        Complaint
-        <textarea
-          value={value.complaint}
-          onChange={(e) => set("complaint", e.target.value)}
-          rows={2}
-        />
-      </label>
-
-      <label>
-        Diagnosis
-        <textarea
-          value={value.diagnosis}
-          onChange={(e) => set("diagnosis", e.target.value)}
-          rows={2}
-        />
-      </label>
-
-      <div className="meds">
-        <div className="meds-head">
-          <span>Medications</span>
-          <button type="button" className="ghost" onClick={addMed}>
-            + Add medication
-          </button>
-        </div>
-        {value.medications.map((m, i) => (
-          <div className="med-row" key={i}>
-            <input
-              value={m.name}
-              onChange={(e) => setMed(i, "name", e.target.value)}
-              placeholder="Name"
-            />
-            <input
-              value={m.dosage}
-              onChange={(e) => setMed(i, "dosage", e.target.value)}
-              placeholder="Dosage"
-            />
-            <input
-              value={m.frequency}
-              onChange={(e) => setMed(i, "frequency", e.target.value)}
-              placeholder="Frequency"
-            />
-            <input
-              value={m.duration}
-              onChange={(e) => setMed(i, "duration", e.target.value)}
-              placeholder="Duration"
-            />
-            <button
-              type="button"
-              className="ghost danger"
-              onClick={() => removeMed(i)}
-              aria-label="Remove medication"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <label>
-        Additional notes
-        <textarea
-          value={value.additional_notes}
-          onChange={(e) => set("additional_notes", e.target.value)}
-          rows={3}
-        />
-      </label>
-    </div>
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2.75" width="12" height="14.5" rx="3" />
+      <path d="M7.5 7.5h5M7.5 11h3" />
+    </svg>
   );
+}
+
+function UploadIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13.5V4M6.5 7.5 10 4l3.5 3.5" />
+      <path d="M4 13v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2" />
+    </svg>
+  );
+}
+
+const NAV_ICON_COLORS: Record<Tab, string> = {
+  ask: "#5B4BE6",
+  records: "#17C39A",
+  upload: "#FF6B5A",
+};
+
+function viewForPath(pathname: string): Tab {
+  if (pathname.startsWith("/records")) return "records";
+  if (pathname.startsWith("/upload")) return "upload";
+  return "ask";
 }
 
 export default function App() {
   const { user, logout } = useAuth();
-  const [tab, setTab] = useState<Tab>("ask");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = viewForPath(location.pathname);
 
-  // chat state
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [question, setQuestion] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // records state
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [recordsLoading, setRecordsLoading] = useState(true);
   const [recordsError, setRecordsError] = useState("");
+  const [meds, setMeds] = useState<Med[]>([]);
+  const [selectedMedId, setSelectedMedId] = useState<string | null>(null);
+  const [showAllMeds, setShowAllMeds] = useState(false);
 
-  // upload state
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>("");
-  const [ocrText, setOcrText] = useState("");
-  const [draft, setDraft] = useState<Prescription | null>(null);
-  const [manualDraft, setManualDraft] = useState<Prescription | null>(null);
-  const [uploadBusy, setUploadBusy] = useState(false);
-  const [ocrStatus, setOcrStatus] = useState("");
-  const [uploadError, setUploadError] = useState("");
-  const [saveMessage, setSaveMessage] = useState("");
+  const profileOpen = searchParams.get("profile") === "1";
+  const openProfile = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set("profile", "1");
+    setSearchParams(next);
+  };
+  const closeProfile = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("profile");
+    setSearchParams(next);
+  };
 
   const loadPrescriptions = async () => {
     try {
@@ -179,436 +86,195 @@ export default function App() {
       setPrescriptions(await prescriptionsApi.list());
     } catch (e) {
       setRecordsError(e instanceof Error ? e.message : "Failed to load records");
+    } finally {
+      setRecordsLoading(false);
+    }
+  };
+
+  const loadMedications = async () => {
+    try {
+      setMeds(await medicationsApi.list());
+    } catch {
+      // sidebar is a nice-to-have derived view - don't block the app on it
     }
   };
 
   useEffect(() => {
     loadPrescriptions();
+    loadMedications();
   }, []);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, chatLoading]);
+    if (location.pathname === "/") navigate("/ask", { replace: true });
+  }, [location.pathname, navigate]);
 
-  const askQuestion = async () => {
-    const q = question.trim();
-    if (!q || chatLoading) return;
-    setMessages((m) => [...m, { role: "user", content: q }]);
-    setQuestion("");
-    setChatLoading(true);
-    try {
-      const res = await prescriptionsApi.chat(q);
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: res.answer, sources: res.sources },
-      ]);
-    } catch (e) {
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content:
-            e instanceof Error ? `Error: ${e.message}` : "Something went wrong.",
-        },
-      ]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const handleFileSelect = (file: File | null) => {
-    setUploadError("");
-    setDraft(null);
-    setOcrText("");
-    setUploadFile(file);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(file ? URL.createObjectURL(file) : "");
-  };
-
-  const runOcr = async () => {
-    if (!uploadFile) return;
-    setUploadBusy(true);
-    setUploadError("");
-    setOcrStatus("queued");
-    try {
-      const job = await prescriptionsApi.ocrAndWait(uploadFile, setOcrStatus);
-      setOcrText(job.raw_text);
-      const extracted = (job.extracted ?? emptyPrescription()) as Prescription;
-      if (!extracted.medications || extracted.medications.length === 0) {
-        extracted.medications = [emptyMedication()];
-      }
-      setDraft(extracted);
-    } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "OCR failed");
-    } finally {
-      setUploadBusy(false);
-      setOcrStatus("");
-    }
-  };
-
-  const saveDraft = async (p: Prescription, clear: () => void) => {
-    setUploadBusy(true);
-    setUploadError("");
-    try {
-      await prescriptionsApi.create(p);
-      setSaveMessage("Saved to knowledge base.");
-      clear();
-      await loadPrescriptions();
-      setTab("records");
-      setTimeout(() => setSaveMessage(""), 4000);
-    } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "Failed to save");
-    } finally {
-      setUploadBusy(false);
-    }
-  };
-
-  const deletePrescription = async (id?: string) => {
+  const deletePrescription = async (id: string) => {
     if (!id) return;
     if (!confirm("Delete this record?")) return;
     try {
       await prescriptionsApi.delete(id);
+      if (location.pathname === `/records/${id}`) navigate("/records");
       await loadPrescriptions();
+      await loadMedications();
     } catch (e) {
       setRecordsError(e instanceof Error ? e.message : "Failed to delete");
     }
   };
 
-  const clearUpload = () => {
-    handleFileSelect(null);
-    setDraft(null);
-    setOcrText("");
+  const handleMedClick = (m: Med) => {
+    setSelectedMedId(m.id);
+    navigate("/ask", { state: { seedQuestion: `Tell me about ${m.name}` } });
   };
 
-  const suggestions = [
-    "What antibiotics has my child taken?",
-    "Summarise the last visit's diagnosis",
-    "Which medicines were given for fever?",
-    "Who was the doctor for the last visit?",
+  const initial = (user?.display_name || user?.email || "?").charAt(0).toUpperCase();
+
+  const navItems: { key: Tab; label: string; icon: (color: string) => ReactElement }[] = [
+    { key: "ask", label: "Ask", icon: (c) => <AskIcon color={c} /> },
+    { key: "records", label: "Records", icon: (c) => <RecordsIcon color={c} /> },
+    { key: "upload", label: "Upload", icon: (c) => <UploadIcon color={c} /> },
   ];
 
+  const activeMeds = meds.filter((m) => m.active);
+  const visibleMeds = showAllMeds ? activeMeds : activeMeds.slice(0, 6);
+
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="logo">Rx</div>
-          <div>
-            <h1>Prescription Assistant</h1>
-            <p>Your knowledge base</p>
+    <div className="shell">
+      <aside className="rail">
+        <div className="rail-brand">
+          <Logo size={36} className="logo-mark" />
+          <div className="rail-brand-text">
+            <div className="name">Prescription Pal</div>
+            <div className="sub">{pluralize(prescriptions.length, "record")}, all yours</div>
           </div>
         </div>
 
-        <div>
-          <div className="section-label">Sections</div>
-          <div className="nav">
+        <nav className="rail-nav">
+          {navItems.map((item) => (
             <button
-              className={`nav-card ${tab === "ask" ? "active" : ""}`}
-              onClick={() => setTab("ask")}
+              key={item.key}
+              type="button"
+              className={`nav-item ${view === item.key ? "active" : ""}`}
+              onClick={() => navigate(`/${item.key}`)}
             >
-              <div className="name">
-                <span className="nav-dot" />
-                Ask
-              </div>
-              <div className="desc">Chat with your saved prescriptions</div>
+              <span className="nav-icon">
+                {item.icon(view === item.key ? "#FFFFFF" : NAV_ICON_COLORS[item.key])}
+              </span>
+              <span className="nav-label">{item.label}</span>
+              {item.key === "records" && (
+                <span className="nav-count">{prescriptions.length}</span>
+              )}
             </button>
-            <button
-              className={`nav-card ${tab === "records" ? "active" : ""}`}
-              onClick={() => setTab("records")}
-            >
-              <div className="name">
-                <span className="nav-dot" />
-                Records
-              </div>
-              <div className="desc">Browse and manage saved records</div>
-            </button>
-            <button
-              className={`nav-card ${tab === "upload" ? "active" : ""}`}
-              onClick={() => setTab("upload")}
-            >
-              <div className="name">
-                <span className="nav-dot" />
-                Upload
-              </div>
-              <div className="desc">Add a prescription by photo or form</div>
-            </button>
-          </div>
-        </div>
+          ))}
+        </nav>
 
-        <div className="account">
-          <Link to="/profile" className="account-info" title="View profile">
-            <span className="account-avatar">
-              {(user?.display_name || user?.email || "?")
-                .charAt(0)
-                .toUpperCase()}
-            </span>
-            <span className="account-name">
-              {user?.display_name || user?.email}
-            </span>
-          </Link>
-          <button className="ghost" onClick={logout}>
-            Sign out
+        {activeMeds.length > 0 && (
+          <div className="rail-meds">
+            <div className="rail-meds-heading">YOUR MEDS</div>
+            <div className="rail-meds-list">
+              {visibleMeds.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`rail-med-row ${selectedMedId === m.id ? "selected" : ""}`}
+                  onClick={() => handleMedClick(m)}
+                >
+                  <span className="med-chip" style={{ background: MED_COLOR_HEX[m.color_key] }} />
+                  <span className="rail-med-name">{m.name}</span>
+                  <span className="rail-med-cadence">{m.cadence}</span>
+                </button>
+              ))}
+              {!showAllMeds && activeMeds.length > 6 && (
+                <button
+                  type="button"
+                  className="rail-med-show-all"
+                  onClick={() => setShowAllMeds(true)}
+                >
+                  Show all ({activeMeds.length})
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {view === "upload" && (
+          <div className="rail-tip-card">
+            <div className="rail-tip-title">Tips for a clean read</div>
+            <div className="rail-tip-body">
+              Flat paper, no shadow, all four corners in frame.
+            </div>
+          </div>
+        )}
+
+        <div className="rail-spacer" />
+
+        <div className="rail-account">
+          <button className="rail-account-link" onClick={openProfile} title="View profile">
+            <div className="avatar-tile">{initial}</div>
+            <div className="rail-account-text">
+              <div className="name">{user?.display_name || user?.email}</div>
+              <div className="sub">Private &amp; encrypted</div>
+            </div>
+          </button>
+          <button className="signout-btn" onClick={logout} title="Sign out">
+            ↪
           </button>
         </div>
       </aside>
 
       <main className="main">
-        <header className="main-header">
-          <h2>
-            {tab === "ask" ? "Ask" : tab === "records" ? "Records" : "Upload"}
-          </h2>
-          {tab === "records" ? (
-            <span className="badge">{prescriptions.length} saved</span>
-          ) : (
-            <span className="badge">Private to your account</span>
+        <div className="mobilebar">
+          <Logo size={30} />
+          <div className="name">Prescription Pal</div>
+          {view === "ask" && (
+            <Link className="mobilebar-newchat" to="/ask" title="Ask">
+              +
+            </Link>
           )}
-        </header>
+          <button className="avatar-tile" onClick={openProfile} title="View profile">
+            {initial}
+          </button>
+        </div>
 
-        {saveMessage && <div className="toast">{saveMessage}</div>}
+        <AskView visible={view === "ask"} prescriptions={prescriptions} />
+        <RecordsView
+          visible={view === "records"}
+          prescriptions={prescriptions}
+          meds={meds}
+          loading={recordsLoading}
+          error={recordsError}
+          onDelete={deletePrescription}
+        />
+        <UploadView
+          visible={view === "upload"}
+          hasRecords={prescriptions.length > 0}
+          onSaved={() => {
+            loadPrescriptions();
+            loadMedications();
+          }}
+        />
 
-        {tab === "ask" ? (
-          <section className="chat">
-            <div className="messages">
-              <div className="thread">
-                {messages.length === 0 && (
-                  <div className="empty">
-                    <h3>How can I help?</h3>
-                    <p>
-                      Ask about your child&apos;s saved prescriptions &mdash;
-                      diagnoses, medications, or past visits.
-                    </p>
-                    <div className="suggestions">
-                      {suggestions.map((s, i) => (
-                        <button
-                          type="button"
-                          key={i}
-                          className="suggestion"
-                          onClick={() => setQuestion(s)}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {messages.map((m, i) => (
-                  <div key={i} className={`msg ${m.role}`}>
-                    <div className={`avatar ${m.role}`}>
-                      {m.role === "user" ? "You" : "Rx"}
-                    </div>
-                    <div className="bubble">
-                      {m.content}
-                      {m.sources && m.sources.length > 0 && (
-                        <div className="sources">
-                          {m.sources.map((s, j) => (
-                            <span key={j} className="chip">
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {chatLoading && (
-                  <div className="msg assistant">
-                    <div className="avatar assistant">Rx</div>
-                    <div className="bubble typing">Thinking…</div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-            </div>
-            <div className="composer-wrap">
-              <div className="composer">
-                <input
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && askQuestion()}
-                  placeholder="Ask about a prescription…"
-                />
-                <button
-                  className="send-btn"
-                  onClick={askQuestion}
-                  disabled={chatLoading}
-                  title="Send"
-                  aria-label="Send"
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <div className="content--page">
-            <div className="page">
-            {tab === "records" && (
-              <section className="panel">
-            <div className="panel-head">
-              <h2>Saved Prescriptions</h2>
-              <button className="ghost" onClick={loadPrescriptions}>
-                Refresh
-              </button>
-            </div>
-            {recordsError && <div className="error">{recordsError}</div>}
-            {prescriptions.length === 0 ? (
-              <div className="empty">
-                <p>No records yet. Use the Upload tab to add one.</p>
-              </div>
-            ) : (
-              <div className="cards">
-                {prescriptions.map((p) => (
-                  <article className="card" key={p.id}>
-                    <div className="card-head">
-                      <div>
-                        <h3>{p.doctor_name || "Unknown doctor"}</h3>
-                        <span className="date">
-                          {p.date_of_visit || "No date"}
-                        </span>
-                      </div>
-                      <button
-                        className="ghost danger"
-                        onClick={() => deletePrescription(p.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                    {p.complaint && (
-                      <p>
-                        <strong>Complaint:</strong> {p.complaint}
-                      </p>
-                    )}
-                    {p.diagnosis && (
-                      <p>
-                        <strong>Diagnosis:</strong> {p.diagnosis}
-                      </p>
-                    )}
-                    {p.medications.length > 0 && (
-                      <ul className="med-list">
-                        {p.medications.map((m, i) => (
-                          <li key={i}>
-                            <strong>{m.name}</strong>
-                            {[m.dosage, m.frequency, m.duration]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="card-meta">
-                      {p.child_age && <span>Age: {p.child_age}</span>}
-                      {p.child_weight && <span>Weight: {p.child_weight}</span>}
-                    </div>
-                    {p.additional_notes && (
-                      <p className="notes">{p.additional_notes}</p>
-                    )}
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {tab === "upload" && (
-          <section className="panel">
-            <div className="panel-head">
-              <h2>Add a Prescription</h2>
-              {!manualDraft && !draft && (
-                <button
-                  className="ghost"
-                  onClick={() => setManualDraft(emptyPrescription())}
-                >
-                  Enter manually
-                </button>
-              )}
-            </div>
-
-            {uploadError && <div className="error">{uploadError}</div>}
-
-            {manualDraft ? (
-              <>
-                <PrescriptionForm value={manualDraft} onChange={setManualDraft} />
-                <div className="actions">
-                  <button
-                    onClick={() => saveDraft(manualDraft, () => setManualDraft(null))}
-                    disabled={uploadBusy}
-                  >
-                    Save to knowledge base
-                  </button>
-                  <button className="ghost" onClick={() => setManualDraft(null)}>
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="uploader">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) =>
-                      handleFileSelect(e.target.files?.[0] ?? null)
-                    }
-                  />
-                  {previewUrl && (
-                    <img className="preview" src={previewUrl} alt="preview" />
-                  )}
-                  {uploadFile && !draft && (
-                    <button onClick={runOcr} disabled={uploadBusy}>
-                      {uploadBusy
-                        ? ocrStatus === "processing"
-                          ? "Processing…"
-                          : ocrStatus === "queued"
-                          ? "Queued…"
-                          : "Extracting…"
-                        : "Extract with OCR"}
-                    </button>
-                  )}
-                </div>
-
-                {ocrText && (
-                  <details className="raw">
-                    <summary>Raw OCR text</summary>
-                    <pre>{ocrText}</pre>
-                  </details>
-                )}
-
-                {draft && (
-                  <>
-                    <p className="hint">Review and correct before saving:</p>
-                    <PrescriptionForm value={draft} onChange={setDraft} />
-                    <div className="actions">
-                      <button
-                        onClick={() => saveDraft(draft, clearUpload)}
-                        disabled={uploadBusy}
-                      >
-                        Save to knowledge base
-                      </button>
-                      <button className="ghost" onClick={clearUpload}>
-                        Discard
-                      </button>
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </section>
-            )}
-
-            </div>
-          </div>
-        )}
+        <nav className="bottomnav">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`bottomnav-item ${view === item.key ? "active" : ""}`}
+              onClick={() => navigate(`/${item.key}`)}
+            >
+              {item.icon(view === item.key ? "#4536C9" : NAV_ICON_COLORS[item.key])}
+              <span className="label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
       </main>
+
+      {profileOpen && (
+        <ProfileModal
+          onClose={closeProfile}
+          recordCount={prescriptions.length}
+          medicationCount={meds.length}
+        />
+      )}
     </div>
   );
 }

@@ -16,6 +16,7 @@ from app.db import get_db
 from app.models_db import User
 from app.repositories import users as users_repo
 from app.schemas import (
+    CONSENT_VERSION,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -66,11 +67,21 @@ async def register(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
+    if not body.consent:
+        raise HTTPException(
+            status_code=400,
+            detail="You must accept that this app repeats your prescription "
+            "records and does not give medical advice.",
+        )
     existing = await users_repo.get_by_email(db, body.email)
     if existing is not None:
         raise HTTPException(status_code=400, detail="Email already registered")
     user = await users_repo.create_user(
-        db, body.email, body.password, body.display_name
+        db,
+        body.email,
+        body.password,
+        body.display_name,
+        consent_version=CONSENT_VERSION,
     )
     return _set_auth_cookies(response, user)
 

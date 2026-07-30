@@ -15,14 +15,17 @@ Return ONLY valid JSON with this exact schema (no markdown, no explanation):
   "complaint": "string",
   "diagnosis": "string",
   "medications": [
-    {"name": "string", "dosage": "string", "frequency": "string", "duration": "string"}
+    {"name": "string", "form": "string (e.g. Tablet, Syrup, Drops - empty if unclear)", "dosage": "string", "frequency": "string", "duration": "string"}
   ],
   "child_age": "string",
   "child_weight": "string",
-  "additional_notes": "string"
+  "additional_notes": "string",
+  "low_confidence": ["field paths you are genuinely unsure about, e.g. \\"doctor_name\\", \\"date_of_visit\\", \\"medications.0.dosage\\" - empty array if you're confident in everything you extracted"]
 }
 
-Use empty strings for unknown fields. If date is unclear, use null.
+Use empty strings for unknown fields. If date is unclear, use null. Only list a field in
+low_confidence if the OCR text was genuinely ambiguous, smudged, or ran characters together for
+that specific field - do not hedge on fields you actually read clearly.
 OCR text:
 """
 
@@ -43,7 +46,7 @@ def _fallback_extract(raw_text: str) -> dict:
         r"(?i)(?:rx|tab|syrup|cap|drops?)[:\s]*([^\n,;]+)", raw_text
     )[:5]:
         medications.append(
-            {"name": name.strip(), "dosage": "", "frequency": "", "duration": ""}
+            {"name": name.strip(), "form": "", "dosage": "", "frequency": "", "duration": ""}
         )
     return {
         "doctor_name": "",
@@ -73,11 +76,16 @@ async def extract_prescription_from_text(raw_text: str) -> dict:
     medications = [
         {
             "name": m.get("name", ""),
+            "form": m.get("form", ""),
             "dosage": m.get("dosage", ""),
             "frequency": m.get("frequency", ""),
             "duration": m.get("duration", ""),
         }
         for m in data.get("medications", [])
+    ]
+
+    low_confidence = [
+        f for f in data.get("low_confidence", []) if isinstance(f, str)
     ]
 
     return {
@@ -90,4 +98,8 @@ async def extract_prescription_from_text(raw_text: str) -> dict:
         "child_weight": data.get("child_weight", ""),
         "additional_notes": data.get("additional_notes", ""),
         "source_text": raw_text,
+        # Not persisted on the Prescription row itself (PrescriptionCreate has
+        # no such field) - only carried on the job payload so the review UI
+        # can flag fields the model itself said it wasn't sure about.
+        "low_confidence": low_confidence,
     }

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # --------------------------- Prescriptions ---------------------------
 class Medication(BaseModel):
     name: str = ""
+    form: str = ""
     dosage: str = ""
     frequency: str = ""
     duration: str = ""
@@ -37,10 +38,14 @@ class PrescriptionOut(PrescriptionBase):
 
 
 # --------------------------- Auth ---------------------------
+CONSENT_VERSION = "v1"
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=10, max_length=128)
     display_name: str = ""
+    consent: bool = False
 
 
 class LoginRequest(BaseModel):
@@ -63,6 +68,24 @@ class UserOut(BaseModel):
     id: UUID
     email: EmailStr
     display_name: str = ""
+    created_at: Optional[datetime] = None
+    password_changed_at: Optional[datetime] = None
+
+
+class UpdateProfileRequest(BaseModel):
+    display_name: str = Field(max_length=120)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=10, max_length=128)
+
+
+DELETE_ACCOUNT_PHRASE = "delete my account"
+
+
+class DeleteAccountRequest(BaseModel):
+    confirm: str
 
 
 # --------------------------- Children ---------------------------
@@ -89,9 +112,53 @@ class ChatRequest(BaseModel):
     date_to: Optional[date] = None
 
 
+ColorKey = str  # "violet" | "mint" | "amber" | "sky"
+
+
+class FactOut(BaseModel):
+    label: str
+    value: str
+    emphasis: bool = False
+
+
+class MedTagOut(BaseModel):
+    name: str
+    color_key: ColorKey
+
+
+class SourceOut(BaseModel):
+    id: str
+    kind: str = "prescription"  # this app only ever produces prescription records
+    title: str
+    prescriber: Optional[str] = None
+    date: Optional[str] = None
+    page: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+
+
+class FollowUpOut(BaseModel):
+    label: str  # short chip text, 2-4 words
+    question: str  # full question inserted into the composer on click
+
+
 class ChatResponse(BaseModel):
-    answer: str
-    sources: list[str] = Field(default_factory=list)
+    text: str
+    med: Optional[MedTagOut] = None
+    facts: Optional[list[FactOut]] = None
+    safety_note: Optional[str] = None
+    sources: list[SourceOut] = Field(default_factory=list)
+    follow_ups: list[FollowUpOut] = Field(default_factory=list)
+
+
+# --------------------------- Medications (derived) ---------------------------
+class MedOut(BaseModel):
+    id: str
+    name: str
+    form: str = ""
+    cadence: str
+    color_key: ColorKey
+    last_seen_at: str
+    active: bool
 
 
 # --------------------------- OCR / Jobs ---------------------------

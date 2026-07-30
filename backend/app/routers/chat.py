@@ -24,7 +24,7 @@ async def chat(
 
     with timed_request() as ctx:
         try:
-            answer, sources = await rag.answer(
+            result = await rag.answer(
                 db,
                 user.id,
                 question,
@@ -38,6 +38,11 @@ async def chat(
 
     logger.info(
         "chat_completed",
-        extra={"extra_fields": {"user_id": str(user.id), "source_count": len(sources)}},
+        extra={
+            "extra_fields": {
+                "user_id": str(user.id),
+                "source_count": len(result.sources),
+            }
+        },
     )
-    return ChatResponse(answer=answer, sources=sources)
+    return result
