@@ -14,4 +14,7 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Run migrations, then start the API.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# --proxy-headers + --forwarded-allow-ips='*' trust Render's edge proxy's
+# X-Forwarded-Proto so HTTPSRedirectMiddleware sees the real scheme instead
+# of always seeing plain HTTP and redirecting every request to itself.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]

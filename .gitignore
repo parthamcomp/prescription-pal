@@ -37,6 +37,9 @@ diagrams-crimson/
 # Kept locally only, not published to the remote
 Prescription_Assistant_Implementation_Guide.html
 
+# API Key for CLoudflare
+API Key - Cloudflare.txt
+
 # impeccable-live-ignore-start
 .impeccable/hook.cache.json
 .impeccable/hook.pending.json
