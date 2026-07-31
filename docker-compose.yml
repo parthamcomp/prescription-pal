@@ -1,3 +1,5 @@
+name: prescription-assistant
+
 services:
   db:
     image: pgvector/pgvector:pg16
