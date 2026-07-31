@@ -34,9 +34,10 @@ services:
         value: "true"
       - key: COOKIE_SECURE
         value: "true"
-      # For a split frontend origin (e.g. Vercel) set COOKIE_SAMESITE=none.
+      # Split frontend origin (Cloudflare Pages) requires SameSite=none;
+      # COOKIE_SECURE=true above is required alongside it.
       - key: COOKIE_SAMESITE
-        value: lax
+        value: none
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_CHAT_MODEL
