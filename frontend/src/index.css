@@ -2567,6 +2567,9 @@ button.ghost.danger:hover {
     max-height: 88vh;
     padding-bottom: env(safe-area-inset-bottom);
   }
+  .profile-data-actions {
+    flex-direction: column;
+  }
 }
 
 /* ------------------------------------------------------------------ */
