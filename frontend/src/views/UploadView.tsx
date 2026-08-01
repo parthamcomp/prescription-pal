@@ -566,8 +566,7 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
                 <button className="ghost" onClick={() => save(true)} disabled={busy}>
                   Save &amp; add another
                 </button>
-                <div className="panel-head-spacer" />
-                <button className="text-ghost" onClick={discard}>
+                <button className="danger-btn" onClick={discard}>
                   Discard
                 </button>
               </div>

@@ -1754,19 +1754,9 @@ a:hover {
   padding: 0 20px;
 }
 
-.text-ghost {
-  background: transparent;
-  color: var(--ink-3);
-  font-size: 13.5px;
-  font-weight: 600;
-  padding: 10px 4px;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.text-ghost:hover {
-  color: var(--ink);
-  background: transparent;
+.review-actions .danger-btn {
+  flex: none;
+  padding: 0 18px;
 }
 
 .rail-tip-card {
