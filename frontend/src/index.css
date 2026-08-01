@@ -1759,7 +1759,9 @@ a:hover {
   color: var(--ink-3);
   font-size: 13.5px;
   font-weight: 600;
-  padding: 0;
+  padding: 10px 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .text-ghost:hover {
