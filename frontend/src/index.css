@@ -1757,6 +1757,7 @@ a:hover {
 .review-actions .danger-btn {
   flex: none;
   padding: 0 18px;
+  border-radius: var(--radius-pill);
 }
 
 .rail-tip-card {
