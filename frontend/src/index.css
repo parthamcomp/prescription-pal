@@ -282,6 +282,7 @@ a:hover {
 }
 
 .rail-med-show-all:hover {
+  background: transparent;
   text-decoration: underline;
 }
 
@@ -887,6 +888,7 @@ a:hover {
 }
 
 .source-card:hover {
+  background: var(--surface);
   border-color: #c9c3f7;
   text-decoration: none;
 }
@@ -1036,6 +1038,7 @@ a:hover {
 }
 
 .attach-btn:hover {
+  background: var(--surface);
   color: var(--primary);
 }
 
@@ -1339,6 +1342,7 @@ a:hover {
 }
 
 .record-ask-link:hover {
+  background: transparent;
   color: var(--primary-hover);
 }
 
