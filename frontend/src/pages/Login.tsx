@@ -19,9 +19,13 @@ export default function Login() {
     try {
       await login(email, password);
       navigate("/ask");
-    } catch {
-      // Never say which field was wrong.
-      setError("That email and password don't match.");
+    } catch (err) {
+      // TEMPORARY diagnostic: show the real error instead of the generic
+      // message so we can see what's actually failing on iOS. Revert once
+      // the cause is found.
+      setError(
+        `DEBUG: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
       setBusy(false);
     }
@@ -47,6 +51,9 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             />
           </label>
           <label>
@@ -58,6 +65,9 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
               <button
                 type="button"
