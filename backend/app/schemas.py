@@ -148,6 +148,11 @@ class ChatResponse(BaseModel):
     safety_note: Optional[str] = None
     sources: list[SourceOut] = Field(default_factory=list)
     follow_ups: list[FollowUpOut] = Field(default_factory=list)
+    # True only when `text` actually contains a [[record]] marker - i.e. the
+    # answer genuinely cites the child's records, not just that retrieval
+    # happened to find something by keyword/embedding similarity. Drives
+    # whether the frontend shows a "not based on your records" disclaimer.
+    grounded: bool = True
 
 
 # --------------------------- Medications (derived) ---------------------------

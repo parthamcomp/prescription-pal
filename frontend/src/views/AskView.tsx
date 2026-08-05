@@ -11,26 +11,31 @@ interface ProseSegment {
   text: string;
 }
 
-// Splits on [[record]]...[[/record]] / [[general]]...[[/general]] tags the
-// chat prompt is instructed to wrap every part of its answer in. Untagged
-// leftovers (including the plain-text fallback strings the backend returns
-// when the LLM is unavailable or nothing was found) come through as
-// type: null and render with no special styling - this must never throw on
-// malformed/missing tags, only degrade to plain prose.
+// [[record]]/[[general]] are mode-switch markers, not a required open/close
+// pair - deliberately lenient, because the model doesn't reliably close them
+// (observed: reusing [[general]] itself as the "close", or dropping a marker
+// entirely for one sentence in a mixed answer). Whatever follows a marker
+// stays that type until the next marker, an explicit [[/record]]/[[/general]]
+// (still honored if present), or the end of the text. Untagged text
+// (including the plain-text fallback strings the backend returns when the
+// LLM is unavailable or nothing was found) comes through as type: null and
+// renders with no special styling - this must never throw on malformed or
+// missing markers, only degrade to plain prose.
 function parseSourceSegments(text: string): ProseSegment[] {
-  const re = /\[\[(record|general)\]\]([\s\S]*?)\[\[\/\1\]\]/g;
+  const re = /\[\[(\/?)(record|general)\]\]/g;
   const segments: ProseSegment[] = [];
   let lastIndex = 0;
+  let currentType: SourceType = null;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      segments.push({ type: null, text: text.slice(lastIndex, match.index) });
+      segments.push({ type: currentType, text: text.slice(lastIndex, match.index) });
     }
-    segments.push({ type: match[1] as SourceType, text: match[2] });
+    currentType = match[1] === "/" ? null : (match[2] as SourceType);
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) {
-    segments.push({ type: null, text: text.slice(lastIndex) });
+    segments.push({ type: currentType, text: text.slice(lastIndex) });
   }
   return segments;
 }
@@ -74,6 +79,11 @@ function AnswerCard({ payload }: { payload: AnswerPayload }) {
           />
           {payload.med.name}
         </span>
+      )}
+      {!payload.grounded && (
+        <div className="grounding-note">
+          Not based on your saved records — general information only.
+        </div>
       )}
       <BoldProse text={payload.text} />
       {payload.facts && payload.facts.length >= 2 && (

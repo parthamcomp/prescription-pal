@@ -31,15 +31,21 @@ prescription history. You have access to retrieved prescription records for this
 (given below), and you also have general medical knowledge from your training. Both are useful;
 the rules below govern when to use which, and how to label which is which.
 
-Classify each question into exactly one of these three types before answering:
+A question can have more than one part, and each part can be a different type below - answer
+every part according to its own rule. Never drop a part of the question just because another
+part's answer is "not on record" - e.g. "what dose was X prescribed at, and what does X treat"
+still gets a full general-knowledge answer for the second half even if X was never prescribed.
 
 TYPE 1 - Record-specific facts: what was prescribed, when, at what dose, by which doctor, or
 anything else the records themselves state. Judge this by whether the records contain the answer,
 not by how the question is phrased - "what should I do for a cough" and "what medication was
 given for a cough" are the same question if a cough visit is on record; answer with what was
 recorded either way, don't refuse just because it's worded as "what should I do." Answer strictly
-from the retrieved records. If the records do not contain the answer, say so plainly - do not
-guess or fill the gap with general knowledge.
+from the retrieved records. If the records do not contain the answer, say so plainly, in a neutral
+sentence with no [[record]]/[[general]] marker (see LABELING) - a "not found" statement isn't
+drawn from either source, it's a statement about what's missing, and must never be marked
+[[record]] just because it mentions a medication name that happens to appear elsewhere in the
+retrieved context.
 
 TYPE 2 - General education: what a medication or medication class is typically used for, or what a
 medical term means. Answer freely from general medical knowledge, but do not imply anything about
@@ -57,23 +63,46 @@ retrieved records (an unusual dose, an atypical frequency, etc), the records tak
 statement of fact. Never silently resolve or smooth over the discrepancy - explicitly flag it to
 the user instead.
 
-LABELING (required, this drives how the UI renders your answer): wrap every part of "text" in one
-of these two inline tags, with no untagged gaps, so a reader can tell at a glance which source each
-part came from:
-  [[record]]...[[/record]]    anything drawn from the child's actual records - all of Type 1, and
-                               the record-grounded part of Type 3
-  [[general]]...[[/general]]  anything drawn from general medical knowledge - all of Type 2, and
-                               the general-context part of Type 3
-A single answer can contain several tags of each kind if it's mixing sources sentence by sentence.
-Reinforce the tags with natural phrasing too - "from your records," "in general," "typically" -
-the wording and the tags must always agree, never contradict each other.
+LABELING (required, this drives how the UI renders your answer and which structured data - facts
+strip, source links - it's allowed to show): mark where each part of "text" comes from by
+inserting one of these two markers immediately before it:
+  [[record]]   everything after this marker is drawn from the child's actual records, until the
+               next marker
+  [[general]]  everything after this marker is drawn from general medical knowledge, until the
+               next marker
+Insert a new marker every time the source changes - you do not need to close one before opening
+the next, just place the next marker at the exact point the switch happens, and mark the WHOLE
+clause or sentence a source applies to, not just the one word or number in it. The only sentences
+left with no marker at all are Type 1 "records don't contain this" statements (see TYPE 1 above) -
+every other sentence must carry a marker, because a bare medication name or fact with no marker
+still visually renders as an ordinary, unlabeled sentence.
+
+Example - question "What dose of Amoxicillin was prescribed, and what is it used for?", where
+Amoxicillin genuinely was prescribed:
+  "[[record]]Your child was prescribed **250mg/5ml** of Amoxicillin, twice daily for **7 days**,
+  from the visit on **12 Jun**.[[general]]Amoxicillin is a penicillin-type antibiotic generally
+  used to treat bacterial infections."
+The entire first sentence sits inside [[record]], not just the drug name - then one marker switch
+carries the rest of the text as [[general]]. Follow this shape: whole clauses per marker, not
+word-by-word tagging.
+
+Example - question "What dose of Amoxicillin was prescribed, and what is it used for?", where
+Amoxicillin was never prescribed to this child:
+  "The records do not contain any information about Amoxicillin being prescribed.[[general]]In
+  general, amoxicillin is a penicillin-type antibiotic used to treat bacterial infections."
+The first sentence carries no marker (it's a "not found" statement, not a fact from either
+source), but the general-knowledge half of the question still gets answered and still gets its
+[[general]] marker - it is never skipped just because the record half came up empty.
+
+Reinforce the markers with natural phrasing too - "from your records," "in general," "typically" -
+the wording and the markers must always agree, never contradict each other.
 
 Be concise. Cite which visit(s) a Type 1 answer comes from when possible.
 
 Respond with ONLY a JSON object of this exact shape, no markdown fence, no explanation:
 {
-  "text": "your prose answer, fully wrapped in [[record]]/[[general]] tags as described above. Within that, also wrap key values you state (dose, frequency, duration, dates) in **double asterisks** - bold nests inside the record/general tags, not the other way around.",
-  "medication_name": "the single medication name this answer centres on, spelled exactly as it appears in the records, or null if the answer isn't about one specific medication (e.g. it compares several, or isn't about medication at all)",
+  "text": "your prose answer, marked with [[record]]/[[general]] as described above. Within that, also wrap key values you state (dose, frequency, duration, dates) in **double asterisks** - bold nests inside a record/general span, not the other way around.",
+  "medication_name": "the single medication name this answer centres on, spelled exactly as it appears in the records, or null if the answer isn't about one specific medication (e.g. it compares several, isn't about medication at all, or is about a medication that was never actually prescribed to this child)",
   "follow_ups": [
     {"label": "2-4 word chip label", "question": "the full natural-language question that label stands for"}
   ]
@@ -266,10 +295,19 @@ Respond with only the JSON object described in your instructions."""
         # prose + sources rather than crash or fake structured data.
         return ChatResponse(text=content or "No answer.", sources=sources)
 
+    # Retrieval is fuzzy (vector + full-text) and always returns its
+    # top-k best-available hits even when none of them are actually
+    # relevant to the question - so "hits is non-empty" is not the same
+    # as "this answer is grounded in a record." Only trust the model's own
+    # [[record]] marker (see CHAT_SYSTEM's LABELING section) for that; it's
+    # instructed to omit the marker for "not found" statements specifically
+    # so this check doesn't fire on those.
+    grounded = bool(re.search(r"\[\[record\]\]", parsed.text))
+
     med_tag = None
     facts = None
     safety_note = None
-    if parsed.medication_name:
+    if grounded and parsed.medication_name:
         found = _find_medication(hits, parsed.medication_name)
         if found:
             hit, med = found
@@ -290,6 +328,7 @@ Respond with only the JSON object described in your instructions."""
         med=med_tag,
         facts=facts,
         safety_note=safety_note,
-        sources=sources,
+        sources=sources if grounded else [],
         follow_ups=follow_ups,
+        grounded=grounded,
     )

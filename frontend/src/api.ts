@@ -54,6 +54,7 @@ export interface AnswerPayload {
   safety_note: string | null;
   sources: Source[];
   follow_ups: FollowUp[];
+  grounded: boolean;
 }
 
 export interface ChatMessage {
