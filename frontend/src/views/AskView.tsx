@@ -4,15 +4,59 @@ import { AnswerPayload, ChatMessage, Prescription, prescriptionsApi } from "../a
 import Logo from "../components/Logo";
 import { medTagSquareColor, sourceMeta } from "../lib/format";
 
-function BoldProse({ text }: { text: string }) {
+type SourceType = "record" | "general" | null;
+
+interface ProseSegment {
+  type: SourceType;
+  text: string;
+}
+
+// Splits on [[record]]...[[/record]] / [[general]]...[[/general]] tags the
+// chat prompt is instructed to wrap every part of its answer in. Untagged
+// leftovers (including the plain-text fallback strings the backend returns
+// when the LLM is unavailable or nothing was found) come through as
+// type: null and render with no special styling - this must never throw on
+// malformed/missing tags, only degrade to plain prose.
+function parseSourceSegments(text: string): ProseSegment[] {
+  const re = /\[\[(record|general)\]\]([\s\S]*?)\[\[\/\1\]\]/g;
+  const segments: ProseSegment[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: null, text: text.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: match[1] as SourceType, text: match[2] });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    segments.push({ type: null, text: text.slice(lastIndex) });
+  }
+  return segments;
+}
+
+function renderBold(text: string, keyPrefix: string) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={`${keyPrefix}-${i}`}>{part.slice(2, -2)}</strong>
+    ) : (
+      <span key={`${keyPrefix}-${i}`}>{part}</span>
+    )
+  );
+}
+
+function BoldProse({ text }: { text: string }) {
+  const segments = parseSourceSegments(text);
   return (
     <p>
-      {parts.map((part, i) =>
-        part.startsWith("**") && part.endsWith("**") ? (
-          <strong key={i}>{part.slice(2, -2)}</strong>
+      {segments.map((seg, i) =>
+        seg.type ? (
+          <span key={i} className={`source-span ${seg.type}`}>
+            {renderBold(seg.text, `s${i}`)}
+          </span>
         ) : (
-          <span key={i}>{part}</span>
+          <span key={i}>{renderBold(seg.text, `s${i}`)}</span>
         )
       )}
     </p>

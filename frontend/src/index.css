@@ -30,6 +30,8 @@
   --coral-tint: #ffe8e4;
 
   --sky: #3fa9f5;
+  --sky-tint: #e6f3fe;
+  --sky-text: #1d6fa5;
 
   --error: #c0392b;
   --error-text: #8a4a42;
@@ -717,6 +719,29 @@ a:hover {
 
 .answercard p strong {
   font-weight: 800;
+}
+
+/* Marks which source a span of the answer came from - color AND border
+   style differ (not color alone) so the distinction survives for
+   colorblind users too. box-decoration-break makes the background/border
+   render correctly per-line when a span wraps across a line break. */
+.source-span {
+  padding: 1px 5px;
+  border-radius: 6px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.source-span.record {
+  background: var(--mint-tint);
+  color: var(--mint-text);
+  border-bottom: 2px solid var(--mint);
+}
+
+.source-span.general {
+  background: var(--sky-tint);
+  color: var(--sky-text);
+  border-bottom: 2px dashed var(--sky);
 }
 
 .facts {

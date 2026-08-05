@@ -4,29 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A fully local, private prescription knowledge base with OCR and AI chat. Parents store their child's prescription records and ask natural-language questions over them. Everything runs locally/in Docker — no cloud accounts, no API keys. It summarizes saved records only; it does not give medical advice.
+A multi-user, cloud-deployed prescription knowledge base with OCR and AI chat. Parents create an account, store their child's prescription records, and ask natural-language questions over them — scoped per user. It summarizes saved records only; it does not give medical advice.
 
-[Prescription_Assistant_Implementation_Guide.html](Prescription_Assistant_Implementation_Guide.html) is the from-scratch tutorial this codebase was built from. Its "Part 1" appendices are the origin of every file under `backend/` and `frontend/` today (the code has since diverged slightly — see "Known tuning" below). Its "Part 2 · Multi-User Production" is a fully designed but **unimplemented** migration path to a multi-user cloud deployment — see "Documented production migration path" below. Treat the guide as reference material, not as something to keep in sync with the code.
+[Prescription_Assistant_Implementation_Guide.html](Prescription_Assistant_Implementation_Guide.html) is the from-scratch tutorial this codebase was originally built from. Its "Part 1" appendices describe the original single-user/Ollama/ChromaDB/flat-file design; that design has been fully replaced (see below). Its "Part 2 · Multi-User Production" is the design this codebase now actually implements — Postgres, OpenAI, JWT cookie auth, object storage, an Arq worker, Render + Cloudflare. Treat the guide as the historical design doc the migration followed, not as something still being kept in sync with the code — the code has diverged in specifics (see module list below for what's actually there).
 
 ## Commands
 
-Everything runs through Docker Compose; there is no requirement to have Node or Python installed on the host.
+Everything runs through Docker Compose; there is no requirement to have Node or Python installed on the host. Ollama is no longer part of this stack.
 
 ```powershell
-# Start everything (requires Ollama running on the host with `llama3.2` pulled)
+# Start everything (Postgres/pgvector, Redis, MinIO, backend, worker, frontend, adminer)
+# Requires OPENAI_API_KEY in the environment or a backend/.env file
 docker compose up --build
 
 # Rebuild a single service after changing its source
 docker compose build backend
+docker compose build worker
 docker compose build frontend
 
 # Tail logs / diagnose a crashed container
 docker compose logs backend
+docker compose logs worker
 
 # Bypass the default uvicorn CMD to run a one-off command in the backend image
 docker compose run --rm backend python -c "..."
 
-# Stop (data in ./data persists)
+# Stop (Postgres/MinIO data persists in named volumes; ./data is only a
+# read-only mount for the legacy JSON import script, see repository below)
 docker compose down
 ```
 
@@ -39,73 +43,79 @@ npm run preview
 
 There is no test suite and no lint config in this repo currently — don't assume `npm test`/`pytest`/`ruff` exist.
 
-Once running: app UI at `http://localhost:3000`, Swagger UI for backend routes at `http://localhost:8000/docs`.
+Once running via Docker Compose: app UI at `http://localhost:3000`, Swagger UI for backend routes at `http://localhost:8000/docs`, MinIO console at `http://localhost:9001`, Adminer (Postgres UI) at `http://localhost:8080`. Production frontend is deployed separately to Cloudflare (`wrangler.jsonc`) at a split origin from the API — see "Frontend" below.
 
 ## Architecture
 
 ```
-Browser (React SPA)
-   |  HTTP requests
+Browser (React SPA -- Cloudflare Pages/Workers in prod, nginx container locally)
+   |  HTTP requests, JWT in HttpOnly cookie (split-origin -> SameSite=none+Secure)
    v
-nginx (frontend container -- port 3000)
-   |  /api/* proxied internally
-   v
-FastAPI backend (port 8000 -- internal only)
+FastAPI backend (Render web service in prod / :8000 in Docker Compose)
    |
-   +--[POST /api/ocr]-----------> Tesseract OCR   (inside backend image)
-   |                                 v  raw text
-   +--[extraction.py]-----------> Ollama on host  (:11434)
-   |                                 v  structured JSON
-   +--[storage.py]---------------> prescriptions.json  (volume: ./data)
+   +--[POST /api/ocr]------> put_object() -> S3/R2/MinIO, enqueue Arq job, return job_id
+   |                            |
+   |                            v (async, separate process)
+   |                          worker.py: Tesseract OCR -> extraction.py -> OpenAI chat
+   |                            |                                            (json_mode)
+   |                            v
+   |                          ProcessingJob row updated (status/raw_text/extracted)
+   |                          frontend polls GET /api/jobs/{id}
    |
-   +--[rag.py]--------------------> ChromaDB  (persisted in ./data/chroma/)
-   |                                 v  embeddings (sentence-transformers)
-   +--[POST /api/chat]-----------> Ollama on host  (:11434, chat API)
+   +--[repositories/*]-----> Postgres (async SQLAlchemy), every table scoped by user_id
+   |
+   +--[services/rag.py]----> hybrid retrieval: pgvector cosine_distance + Postgres
+   |                          full-text (tsvector/GIN), merged by reciprocal rank fusion
+   +--[POST /api/chat]-----> OpenAI chat completion (json_mode), answers strictly from
+                              the retrieved records for that user
 ```
 
-**Ollama runs on the host, not in a container** — the backend reaches it via `host.docker.internal:11434` (see `OLLAMA_BASE_URL` in `docker-compose.yml`). This is the one piece of infra you can't `docker compose up` your way into; it must be started and have `llama3.2` pulled separately.
+**No Ollama, no ChromaDB, no flat JSON file anymore.** OCR still runs via Tesseract, but only inside the Arq worker (`worker.py`), never inline in a request — uploads return a `job_id` immediately and the frontend polls `GET /api/jobs/{id}` (`routers/jobs.py`) until it's `done`/`error`.
 
 ### Backend (`backend/app/`)
 
-Single FastAPI app (`main.py`) wired to four modules, each owning one concern:
+FastAPI app (`main.py`) with routers/repositories/services split by concern:
 
-- `storage.py` — `PrescriptionStore`, a flat-file CRUD layer over `data/prescriptions.json` (module-level singleton `store`). Every record is a `Prescription` (see `models.py`). No database.
-- `ocr.py` — `extract_text_from_image()`, a thin `pytesseract` wrapper. Image bytes in, raw text out.
-- `extraction.py` — turns raw OCR text into a structured `Prescription` by prompting Ollama's `/api/generate` with `format: json`. If Ollama is unreachable or returns unparseable JSON, falls back to `_fallback_extract()`, a regex-based best-effort parser (looks for `Rx:`/`Tab:`/`Syrup:` patterns and date-like substrings). Both paths always return a `Prescription`, never raise to the caller.
-- `rag.py` — `PrescriptionRAG` (singleton `rag`). Embeds every prescription as a flattened text document via `sentence-transformers` and indexes it in a persistent ChromaDB collection at `data/chroma/`. `rebuild_index()` fully replaces the collection contents (delete-all then re-add) rather than diffing — cheap enough at this scale, but means every write triggers a full re-embed of all records. `answer()` retrieves top-k matches and asks Ollama's `/api/chat` (system+user messages, not `/api/generate`) to answer strictly from that context.
+- `models_db.py` — SQLAlchemy models: `User`, `Child`, `Prescription` (has both `embedding` (`pgvector`) and a `search_vector` `TSVECTOR` column generated by Postgres itself via `Computed(...)`), `ProcessingJob`. Every user-owned row carries `user_id`.
+- `schemas.py` — Pydantic request/response models for the routers.
+- `db.py` — async SQLAlchemy engine/session; `get_db()` FastAPI dependency.
+- `auth/security.py`, `auth/deps.py` — bcrypt password hashing, JWT access+refresh token creation/decoding, `get_current_user()` dependency (reads the `access_token` HttpOnly cookie first, falls back to a `Bearer` header for API clients).
+- `routers/` — `auth.py`, `account.py`, `children.py`, `prescriptions.py`, `medications.py`, `chat.py`, `ocr.py`, `jobs.py`. Every data route is gated behind `get_current_user` and scoped to that user's rows via `repositories/`.
+- `repositories/` — plain async-SQLAlchemy query functions per table (`users.py`, `children.py`, `prescriptions.py`, `jobs.py`); no ORM-session logic lives in routers.
+- `services/objects.py` — thin `boto3` S3-client wrapper (`put_object`/`get_object`/`ensure_bucket`) pointed at whatever `STORAGE_ENDPOINT` is configured — MinIO locally, Cloudflare R2 in prod.
+- `services/ocr.py` — `extract_text_from_image()`, a `pytesseract` wrapper. Only ever called from `worker.py`, never from a request handler.
+- `services/extraction.py` — turns raw OCR text into structured prescription fields by prompting OpenAI chat (`json_mode=True`) via `services/llm.py`. Falls back to `_fallback_extract()`, a regex-based best-effort parser, if the call fails or returns unparseable JSON. Always returns a dict, never raises to the caller.
+- `services/embeddings.py` — `embed_text()`, one call to OpenAI's embeddings API (`openai_embed_model`).
+- `services/llm.py` / `services/openai_client.py` — shared OpenAI async client + `chat_completion()` helper (temperature, `json_mode`), used by both `extraction.py` and `rag.py`.
+- `services/budget.py` — a process-wide `TokenBudget` that estimates a request's token cost up front and rejects it before calling OpenAI if it would exceed `max_tokens_per_request`; `record()` logs actual usage OpenAI reports back, exposed via `GET /api/metrics`.
+- `services/rag.py` — `answer()`: embeds the question (degrades to full-text-only retrieval if the embed call fails), calls `repositories/prescriptions.py::search_for_user()` for hybrid pgvector + full-text retrieval (see docstring there for the reciprocal-rank-fusion rationale), then asks OpenAI to answer strictly from the retrieved records, classifying each part of the answer as record-grounded vs. general knowledge (see prompt framing below).
+- `worker.py` (run via `Dockerfile.worker`, Arq over Redis, config in `queue.py`) — the single job type `process_ocr_job`: fetch the uploaded image from object storage, OCR it, run extraction, write the result onto the `ProcessingJob` row.
+- `metrics.py` — in-process request volume/latency/error-rate counters, exposed alongside token usage via `GET /api/metrics` (login-gated, not public).
 
-**Index consistency**: `main.py` calls `rag.rebuild_index(store.list_all())` (aliased `_reindex()`) on app startup and after every create/update/delete. The vector index is treated as a derived cache of the JSON store, not a source of truth — if the two ever diverge, `POST /api/reindex` rebuilds it from `prescriptions.json`.
+**Index consistency**: there is no separate rebuild-the-index step anymore — `embedding` and `search_vector` live as columns on the `Prescription` row itself (the latter Postgres-generated), written/updated in the same transaction as the row via `repositories/prescriptions.py`. Nothing can drift out of sync the way a separate ChromaDB collection could.
 
-**Both Ollama-calling modules degrade gracefully**: `extraction.py` falls back to regex extraction; `rag.answer()` falls back to dumping raw retrieved context if the chat call fails. Neither raises an unhandled exception when Ollama is down — preserve this pattern if you touch either.
+**Both OpenAI-calling code paths degrade gracefully**: `extraction.py` falls back to regex extraction; `rag.answer()` falls back to full-text-only retrieval if embedding fails, and to a "records found but LLM unavailable" message with raw context if the chat call itself fails. Neither raises an unhandled exception when OpenAI is unreachable or `OPENAI_API_KEY` is unset — preserve this pattern if you touch either.
 
 **System prompt framing** (`rag.py`): the chat system prompt deliberately frames answers as *reporting already-recorded history* rather than *giving medical advice* — this was tuned to stop the model from refusing to state a dosage/duration that's already written in a saved record. Keep this framing if you edit the prompt; a more clinical-sounding prompt tends to reintroduce refusals.
 
-Settings (`config.py`) are a `pydantic_settings.BaseSettings` reading from env vars / `.env` — `data_dir`, `ollama_base_url`, `ollama_model`, `embedding_model`, `chroma_collection`. In Docker these are currently set directly in `docker-compose.yml` under the `backend` service rather than via `.env`.
+The prompt also classifies each question into one of three types — record-specific fact, general education, or judgment/safety — each with its own answering rule, plus a conflict rule (records win over general knowledge; a discrepancy must be flagged, never silently resolved). The model marks which type each part of its answer is by wrapping it in inline `[[record]]...[[/record]]` / `[[general]]...[[/general]]` tags inside the `text` field (nested outside the existing `**bold**` numeric-value markup). `AskView.tsx`'s prose renderer parses these into visually distinct spans — mint tint + solid underline for record-grounded text, sky tint + dashed underline for general knowledge — before applying bold parsing within each. This is the only mechanism driving that visual distinction; there's no separate structured field for it, so if you edit the prompt further, keep the tags wrapping the *entire* answer with no untagged gaps, or parts of the response will silently fall back to unstyled text.
+
+Settings (`config.py`) are a `pydantic_settings.BaseSettings` reading from env vars / `.env`: `database_url` (Postgres, normalised to the `asyncpg` driver via `async_database_url`), `redis_url`, `openai_api_key`/`openai_chat_model`/`openai_embed_model`/`embedding_dim`, `jwt_secret`/`jwt_alg`/`access_ttl_min`/`refresh_ttl_days`, `storage_endpoint`/`storage_region`/`storage_bucket`/`storage_access_key`/`storage_secret_key` (S3-compatible: MinIO locally, R2 in prod), `cors_origins`, `max_upload_mb`, `rag_top_k`, `max_tokens_per_request`, `fulltext_language`, `enforce_https`/`hsts_max_age`/`trusted_hosts` (off by default so local HTTP dev works), and `cookie_secure`/`cookie_samesite`/`cookie_domain`. In Docker Compose these are set directly in `docker-compose.yml` per service; in production they're set in `render.yaml` (`sync: false` entries are filled in via the Render dashboard, not committed).
 
 ### Frontend (`frontend/src/`)
 
-Small React 19 + TypeScript app, no router or state library — `App.tsx` holds all view state (Ask / Records / Upload tabs) and `api.ts` is a thin fetch wrapper (`prescriptionsApi`) mirroring the backend routes 1:1. Types in `api.ts` (`Prescription`, `Medication`, `OCRResult`, `ChatMessage`) should be kept in sync with `backend/app/models.py` by hand — there's no shared schema/codegen between the two.
+React 19 + TypeScript app. `App.tsx` still holds most view state; `auth/AuthContext.tsx` now wraps it for login/session state, and `api.ts` is a thin fetch wrapper mirroring the backend routes 1:1, sending cookies (`credentials: "include"`) and reading `VITE_API_URL` (via `API_BASE` at the top of `api.ts`) so the SPA can be built to call a different origin than the one it's served from. Types in `api.ts` should be kept in sync with `backend/app/schemas.py`/`models_db.py` by hand — there's no shared schema/codegen between the two.
 
-Built by nginx multi-stage Docker build; `nginx.conf` proxies `/api/*` to the backend container and serves the SPA for everything else.
-
-### Known tuning that isn't obvious from the code alone
-
-- `frontend/nginx.conf` sets `proxy_read_timeout`/`proxy_send_timeout`/`proxy_connect_timeout` to `180s` — OCR + LLM extraction on a photo can exceed nginx's 60s default, which otherwise surfaces as a `504` in the browser even though the backend is still working.
-- `docker-compose.yml` mounts `./data/hf-cache:/root/.cache/huggingface` so the `sentence-transformers` embedding model persists across backend rebuilds instead of re-downloading on every `docker compose build backend` (adds several minutes otherwise).
+Two deployment paths exist side by side:
+- **Docker Compose** (`frontend/Dockerfile` + `nginx.conf`): nginx multi-stage build, proxies `/api/*` to the `backend` container and serves the SPA for everything else. Same-origin, so cookies work with `SameSite=lax`.
+- **Production** (`wrangler.jsonc`): the built `frontend/dist` is deployed to Cloudflare (Pages/Workers static assets) at `prescription-pal.com`, calling the API at a separate `api.prescription-pal.com` origin via `VITE_API_URL`. This split origin is why `render.yaml` sets `COOKIE_SAMESITE=none` + `COOKIE_SECURE=true` for the API — see the security note below.
 
 ### Current scope / known gaps
 
-This is a single-user, local-only app by design. No auth, no per-user data isolation, storage is a flat JSON file (not a real DB), OCR+extraction run synchronously in-request, no HTTPS/secrets management. Don't add multi-user or cloud-deployment scaffolding unless explicitly asked — it's out of scope for the current design.
+Multi-user, cloud-deployed by design now — auth, per-user row scoping (`user_id` on every table), Postgres instead of a flat file, async OCR via a worker queue instead of blocking the request. Schema changes go through Alembic (`backend/alembic/`, `backend/alembic.ini`; current migrations: `0001_init` → `0004_account_extras`). Remaining gaps worth knowing: no automated test suite or lint config (see "Commands"); `backend/app/scripts/import_json.py` is a one-off migration script for pulling records out of the old `prescriptions.json` format, not something exercised regularly; prescription fields are stored as plaintext in Postgres, not column-level encrypted (see security note below for why); metrics (`services/budget.py`, `metrics.py`) are in-process and per-instance, not centralized — fine at current scale (single Render web service), would need a shared store (e.g. Redis) if the API ever runs multiple replicas.
 
-### Documented production migration path (not implemented in this repo)
+### Production infrastructure
 
-The implementation guide's "Part 2 · Multi-User Production" spells out — in full source form, appendices included — how this app would be turned into a public multi-user product. None of it exists in `backend/app/` today (no `models_db.py`, `schemas.py`, `auth/`, `worker.py`, etc.); it's a reference design, not in-progress work. If a task calls for moving toward multi-user/cloud, consult the guide's Part 2 rather than re-deriving the approach:
+This is the guide's "Part 2 · Multi-User Production" design, actually deployed: Postgres+pgvector and Redis provisioned by `render.yaml` (or swappable for Neon/Upstash via `sync: false` + external URLs), object storage on Cloudflare R2 (`services/objects.py`, S3-compatible), API (`backend/Dockerfile`) and worker (`backend/Dockerfile.worker`) as separate Render services from one repo, frontend on Cloudflare (`wrangler.jsonc`) at the `prescription-pal.com` custom domain talking to `api.prescription-pal.com`.
 
-- **Storage**: `prescriptions.json` → Postgres via async SQLAlchemy + Alembic, every table scoped by `user_id`.
-- **Vectors**: ChromaDB full-rebuild-on-write → pgvector, incremental upsert per record, `cosine_distance` query filtered by user, combined with Postgres full-text search (generated `tsvector` + GIN index) via reciprocal rank fusion — because pure embedding search misses exact drug/doctor-name/dosage strings.
-- **LLM/embeddings**: Ollama (local) → OpenAI (`gpt-4o-mini` for chat, `text-embedding-3-small` for embeddings), gated by a per-request token budget so a large OCR dump can't silently run up cost.
-- **OCR pipeline**: inline/blocking in the request → async, via an Arq worker over Redis; upload returns a `job_id` immediately, frontend polls `/api/jobs/{id}`.
-- **Uploads**: read-then-discarded → persisted to object storage (S3/R2/MinIO).
-- **Auth**: none → JWT access+refresh tokens in `HttpOnly` cookies, bcrypt password hashing, a `get_current_user` FastAPI dependency injected into every data route.
-- **Infra**: Postgres on Neon, Redis on Upstash, storage on Cloudflare R2, API+worker on Render (`render.yaml` blueprint), frontend on the existing nginx container or a static host — all wired through env vars documented in the guide's Setup chapters.
-- **Security specifics worth knowing if this path is ever taken**: cookies use `SameSite=lax` only when frontend and API share an origin (the nginx proxy setup); a split-origin deployment (SPA on Vercel, API on Render) requires `SameSite=none` + `Secure=true` or auth silently breaks. Prescription fields are deliberately *not* encrypted at the column level — RAG needs plaintext to embed and to send as LLM context, so encrypting them would break search; the design relies on provider-level encryption at rest (Neon/Upstash/R2) plus TLS everywhere instead.
+**Security specifics worth knowing**: cookies use `SameSite=lax` only when frontend and API share an origin (the Docker Compose nginx-proxy setup); the actual production split-origin deployment (SPA on Cloudflare, API on Render) requires `SameSite=none` + `Secure=true`, which is what `render.yaml` sets — get this wrong and auth silently breaks (cookie never sent). Prescription fields are deliberately *not* encrypted at the column level — RAG needs plaintext to embed and to send as LLM context, so encrypting them would break search; the design relies on provider-level encryption at rest (Render Postgres/Upstash/R2) plus TLS everywhere instead.
