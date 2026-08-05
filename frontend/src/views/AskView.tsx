@@ -122,7 +122,6 @@ export default function AskView({ visible, prescriptions }: AskViewProps) {
   const [question, setQuestion] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [notedIndex, setNotedIndex] = useState<number | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const questionInputRef = useRef<HTMLInputElement>(null);
 
@@ -178,11 +177,6 @@ export default function AskView({ visible, prescriptions }: AskViewProps) {
     } catch {
       // clipboard permission denied - nothing sensible to surface
     }
-  };
-
-  const noteFeedback = (index: number) => {
-    setNotedIndex(index);
-    setTimeout(() => setNotedIndex((v) => (v === index ? null : v)), 1500);
   };
 
   const newChat = () => {
@@ -285,9 +279,6 @@ export default function AskView({ visible, prescriptions }: AskViewProps) {
                           onClick={() => copyMessage(m.payload!.text, i)}
                         >
                           {copiedIndex === i ? "Copied!" : "Copy"}
-                        </button>
-                        <button className="action-btn" onClick={() => noteFeedback(i)}>
-                          {notedIndex === i ? "Thanks — noted" : "Not right?"}
                         </button>
                       </div>
                     </>

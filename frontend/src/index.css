@@ -677,6 +677,13 @@ a:hover {
   word-wrap: break-word;
 }
 
+/* The global ::selection (violet bg, white text) is invisible here since
+   the bubble already has those exact colors at rest - invert instead. */
+.bubble ::selection {
+  background: #ffffff;
+  color: var(--primary);
+}
+
 .answercard {
   border-radius: 20px;
   background: var(--surface-tint);
