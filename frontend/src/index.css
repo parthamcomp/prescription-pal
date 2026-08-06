@@ -679,7 +679,7 @@ a:hover {
 
 /* The global ::selection (violet bg, white text) is invisible here since
    the bubble already has those exact colors at rest - invert instead. */
-.bubble ::selection {
+.bubble::selection {
   background: #ffffff;
   color: var(--primary);
 }
