@@ -12,11 +12,16 @@ from app.queue import get_pool
 from app.repositories import jobs as jobs_repo
 from app.schemas import JobCreated
 from app.services.objects import put_object
+from app.services.rate_limit import user_rate_limit
 
 router = APIRouter(prefix="/api/ocr", tags=["ocr"])
 
 
-@router.post("", response_model=JobCreated)
+@router.post(
+    "",
+    response_model=JobCreated,
+    dependencies=[Depends(user_rate_limit(20, 3600, "ocr"))],
+)
 async def submit_ocr(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),

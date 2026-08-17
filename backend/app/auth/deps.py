@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.security import decode_token
+from app.auth.security import decode_token, token_issued_before_password_change
 from app.db import get_db
 from app.models_db import User
 
@@ -43,5 +43,7 @@ async def get_current_user(
 
     user = await db.get(User, user_id)
     if user is None:
+        raise _CREDENTIALS_ERROR
+    if token_issued_before_password_change(payload, user.password_changed_at):
         raise _CREDENTIALS_ERROR
     return user

@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     embedding_dim: int = 1536
 
     # --- Auth / JWT ---
-    # NOTE: override jwt_secret via environment in any real deployment.
-    jwt_secret: str = "dev-insecure-change-me"
+    # No default on purpose: a predictable fallback here would let anyone
+    # forge a valid session for any user if an env var was ever missed. Every
+    # environment must set JWT_SECRET explicitly - docker-compose.yml supplies
+    # one for local dev, render.yaml generates one for production.
+    jwt_secret: str
     jwt_alg: str = "HS256"
     access_ttl_min: int = 30
     refresh_ttl_days: int = 14

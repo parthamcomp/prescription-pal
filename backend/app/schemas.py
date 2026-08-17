@@ -1,30 +1,43 @@
+import re
 from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+
+def _validate_password_complexity(v: str) -> str:
+    if not re.search(r"[a-z]", v):
+        raise ValueError("Password must include a lowercase letter")
+    if not re.search(r"[A-Z]", v):
+        raise ValueError("Password must include an uppercase letter")
+    if not re.search(r"\d", v):
+        raise ValueError("Password must include a digit")
+    if not re.search(r"[^\w\s]", v):
+        raise ValueError("Password must include a special character")
+    return v
 
 
 # --------------------------- Prescriptions ---------------------------
 class Medication(BaseModel):
-    name: str = ""
-    form: str = ""
-    dosage: str = ""
-    frequency: str = ""
-    duration: str = ""
+    name: str = Field("", max_length=200)
+    form: str = Field("", max_length=200)
+    dosage: str = Field("", max_length=200)
+    frequency: str = Field("", max_length=200)
+    duration: str = Field("", max_length=200)
 
 
 class PrescriptionBase(BaseModel):
-    doctor_name: str = ""
+    doctor_name: str = Field("", max_length=200)
     date_of_visit: Optional[date] = None
-    complaint: str = ""
-    diagnosis: str = ""
+    complaint: str = Field("", max_length=5000)
+    diagnosis: str = Field("", max_length=5000)
     medications: list[Medication] = Field(default_factory=list)
-    child_age: str = ""
-    child_weight: str = ""
+    child_age: str = Field("", max_length=50)
+    child_weight: str = Field("", max_length=50)
     child_id: Optional[UUID] = None
-    additional_notes: str = ""
-    source_text: str = ""
+    additional_notes: str = Field("", max_length=5000)
+    source_text: str = Field("", max_length=20000)
 
 
 class PrescriptionCreate(PrescriptionBase):
@@ -44,23 +57,27 @@ CONSENT_VERSION = "v1"
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
-    display_name: str = ""
+    display_name: str = Field("", max_length=120)
     consent: bool = False
+
+    _validate_password = field_validator("password")(_validate_password_complexity)
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    # Length-capped only, deliberately not complexity-checked - this is
+    # verifying an existing credential, not setting a new one, and applying
+    # today's complexity rule retroactively would lock out anyone whose
+    # password predates it.
+    password: str = Field(max_length=128)
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str = Field(max_length=4000)
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
+class OkResponse(BaseModel):
+    ok: bool = True
 
 
 class UserOut(BaseModel):
@@ -77,15 +94,19 @@ class UpdateProfileRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
+    current_password: str = Field(max_length=128)
     new_password: str = Field(min_length=10, max_length=128)
+
+    _validate_new_password = field_validator("new_password")(
+        _validate_password_complexity
+    )
 
 
 DELETE_ACCOUNT_PHRASE = "delete my account"
 
 
 class DeleteAccountRequest(BaseModel):
-    confirm: str
+    confirm: str = Field(max_length=50)
 
 
 # --------------------------- Children ---------------------------
@@ -103,7 +124,7 @@ class ChildOut(BaseModel):
 
 # --------------------------- Chat ---------------------------
 class ChatRequest(BaseModel):
-    question: str
+    question: str = Field(max_length=2000)
     # Optional structured filters - narrow the record set before retrieval
     # instead of asking the embedding to infer "which child" or "which
     # dates" from the question text.

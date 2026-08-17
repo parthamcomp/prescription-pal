@@ -9,6 +9,9 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
+USER appuser
+
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000

@@ -9,6 +9,8 @@ from app.auth.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    hash_password,
+    token_issued_before_password_change,
     verify_password,
 )
 from app.config import settings
@@ -18,11 +20,12 @@ from app.repositories import users as users_repo
 from app.schemas import (
     CONSENT_VERSION,
     LoginRequest,
+    OkResponse,
     RefreshRequest,
     RegisterRequest,
-    TokenResponse,
     UserOut,
 )
+from app.services.rate_limit import ip_rate_limit
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -30,8 +33,10 @@ ACCESS_COOKIE = "access_token"
 REFRESH_COOKIE = "refresh_token"
 REFRESH_PATH = "/api/auth"
 
+_GENERIC_REGISTER_ERROR = "Could not register with the details provided."
 
-def _set_auth_cookies(response: Response, user: User) -> TokenResponse:
+
+def _set_auth_cookies(response: Response, user: User) -> None:
     subject = str(user.id)
     access = create_access_token(subject)
     refresh = create_refresh_token(subject)
@@ -57,11 +62,18 @@ def _set_auth_cookies(response: Response, user: User) -> TokenResponse:
         path=REFRESH_PATH,
         **common,
     )
-    # Tokens are also returned in the body for non-browser API clients.
-    return TokenResponse(access_token=access, refresh_token=refresh)
+    # Tokens live only in HttpOnly cookies now - returning them in the JSON
+    # body too would hand a script-readable copy to anything that can read
+    # the response (XSS, overly-broad logging), defeating the point of
+    # HttpOnly. The frontend never reads them from the body (it calls
+    # /api/auth/me separately), so there was nothing relying on this.
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post(
+    "/register",
+    response_model=OkResponse,
+    dependencies=[Depends(ip_rate_limit(5, 3600, "register"))],
+)
 async def register(
     body: RegisterRequest,
     response: Response,
@@ -75,7 +87,12 @@ async def register(
         )
     existing = await users_repo.get_by_email(db, body.email)
     if existing is not None:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        # Same generic failure as a bad login - do not reveal whether the
+        # email is already registered. The hash below costs roughly the same
+        # as the real create_user() path so the two branches don't diverge
+        # in timing either.
+        hash_password(body.password)
+        raise HTTPException(status_code=400, detail=_GENERIC_REGISTER_ERROR)
     user = await users_repo.create_user(
         db,
         body.email,
@@ -83,10 +100,15 @@ async def register(
         body.display_name,
         consent_version=CONSENT_VERSION,
     )
-    return _set_auth_cookies(response, user)
+    _set_auth_cookies(response, user)
+    return OkResponse()
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=OkResponse,
+    dependencies=[Depends(ip_rate_limit(10, 300, "login"))],
+)
 async def login(
     body: LoginRequest,
     response: Response,
@@ -95,10 +117,15 @@ async def login(
     user = await users_repo.get_by_email(db, body.email)
     if user is None or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    return _set_auth_cookies(response, user)
+    _set_auth_cookies(response, user)
+    return OkResponse()
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    response_model=OkResponse,
+    dependencies=[Depends(ip_rate_limit(30, 300, "refresh"))],
+)
 async def refresh(
     request: Request,
     response: Response,
@@ -121,7 +148,10 @@ async def refresh(
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
-    return _set_auth_cookies(response, user)
+    if token_issued_before_password_change(payload, user.password_changed_at):
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    _set_auth_cookies(response, user)
+    return OkResponse()
 
 
 @router.post("/logout")

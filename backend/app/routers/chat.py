@@ -8,11 +8,16 @@ from app.metrics import timed_request
 from app.models_db import User
 from app.schemas import ChatRequest, ChatResponse
 from app.services import rag
+from app.services.rate_limit import user_rate_limit
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
-@router.post("", response_model=ChatResponse)
+@router.post(
+    "",
+    response_model=ChatResponse,
+    dependencies=[Depends(user_rate_limit(60, 3600, "chat"))],
+)
 async def chat(
     body: ChatRequest,
     user: User = Depends(get_current_user),

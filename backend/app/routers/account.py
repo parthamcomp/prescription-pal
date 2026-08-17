@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.auth.deps import get_current_user
 from app.auth.security import hash_password, verify_password
@@ -20,6 +21,8 @@ from app.schemas import (
     UpdateProfileRequest,
     UserOut,
 )
+from app.services.objects import delete_prefix
+from app.services.rate_limit import user_rate_limit
 
 router = APIRouter(prefix="/api/account", tags=["account"])
 
@@ -33,7 +36,10 @@ async def update_profile(
     return await users_repo.update_display_name(db, user, body.display_name.strip())
 
 
-@router.post("/change-password")
+@router.post(
+    "/change-password",
+    dependencies=[Depends(user_rate_limit(10, 3600, "change_password"))],
+)
 async def change_password(
     body: ChangePasswordRequest,
     user: User = Depends(get_current_user),
@@ -91,7 +97,16 @@ async def delete_account(
         raise HTTPException(
             status_code=400, detail=f'Type "{DELETE_ACCOUNT_PHRASE}" to confirm.'
         )
+    user_id = user.id
     await users_repo.delete_user(db, user)
+    try:
+        # DB rows (prescriptions, children, processing_jobs) cascade-delete
+        # via FK ON DELETE CASCADE, but the uploaded prescription photos
+        # themselves live in object storage and nothing else removes them -
+        # without this they'd outlive the account indefinitely.
+        await run_in_threadpool(delete_prefix, f"uploads/{user_id}/")
+    except Exception:  # noqa: BLE001 - the account is already gone; don't fail the request over storage cleanup
+        pass
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/api/auth")
     return {"ok": True}

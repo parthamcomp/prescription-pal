@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
+USER appuser
+
 ENV PYTHONUNBUFFERED=1
 
 CMD ["arq", "app.worker.WorkerSettings"]
