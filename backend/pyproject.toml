@@ -1,0 +1,23 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "unit: Tier 1 - pure logic, all seams stubbed, no I/O",
+    "integration: Tier 2 - real Postgres/Redis/MinIO via testcontainers",
+    "contract: Tier 4 - schema/contract snapshots",
+]
+# pytest-randomly randomizes test order by default (installed above) -
+# this is intentional: a suite whose tests only pass in file/definition
+# order has hidden inter-test coupling, and that is a bug in the suite,
+# not something to work around with -p no:randomly.
+addopts = "-ra --strict-markers"
+
+[tool.mutmut]
+# mutmut 3.x's PytestRunner is hardcoded (no custom command support) and
+# discovers tests via pytest's own `testpaths` above, run from inside a
+# `mutants/` working copy - so a mutation run against a single module needs
+# `testpaths` temporarily narrowed to that module's test file (see
+# docs/testing.md "Running mutation testing" for the exact steps) rather
+# than any option settable here.
+paths_to_mutate = ["app/services/meds.py"]
