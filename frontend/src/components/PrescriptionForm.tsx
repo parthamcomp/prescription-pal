@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Child, Medication, Prescription, emptyMedication } from "../api";
+import { formatChildAge } from "../lib/format";
 
 export interface PrescriptionFormProps {
   value: Prescription;
@@ -39,6 +41,20 @@ export default function PrescriptionForm({
     });
 
   const flagged = (field: string) => (fieldFlag(lowConfidence, field) ? "flagged" : "");
+
+  // Fills child_age from the child's date_of_birth + the prescription's
+  // date_of_visit, but only while the field is still empty - OCR extraction
+  // and any value the user has already typed both win over this. Re-runs
+  // whenever the child or date changes, so picking a date after the child
+  // (or switching children) still fills it in, not just the first render.
+  useEffect(() => {
+    if (value.child_age || !value.child_id || !value.date_of_visit) return;
+    const child = childList.find((c) => c.id === value.child_id);
+    if (!child?.date_of_birth) return;
+    const computed = formatChildAge(child.date_of_birth, value.date_of_visit);
+    if (computed) set("child_age", computed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.child_id, value.date_of_visit, childList]);
 
   return (
     <div className="review-fields">

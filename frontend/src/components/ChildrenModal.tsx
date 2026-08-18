@@ -84,7 +84,7 @@ export default function ChildrenModal({
     const ok = await confirm({
       title: `Remove ${c.name}?`,
       message: `This permanently deletes every prescription record saved for ${c.name} too. This can't be undone.`,
-      confirmLabel: "Delete child & records",
+      confirmLabel: "Delete",
       danger: true,
     });
     if (!ok) return;

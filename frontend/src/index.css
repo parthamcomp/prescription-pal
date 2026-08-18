@@ -1282,6 +1282,15 @@ select.sort-btn:hover {
   background-position: right 10px center;
 }
 
+/* Same native-popup limitation as .stacked-field select above - only
+   background-color/color/font-family on <option> reach the OS-rendered
+   dropdown list. */
+select.sort-btn option {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background-color: var(--surface);
+}
+
 .sort-btn:hover {
   background: var(--surface-alt-hover);
   color: var(--ink-2);
@@ -1872,6 +1881,21 @@ select.sort-btn:hover {
 .stacked-field textarea:focus {
   outline: none;
   border-color: var(--primary);
+}
+
+/* The closed <select> box is fully custom-styled above, but its native
+   dropdown popup (the <option> list) is rendered by the OS, not this
+   stylesheet - most of the select's own CSS (border-radius, box-shadow,
+   custom chevron) never reaches it. background-color/color/font-family on
+   <option> itself are the few properties browsers do honor there, so this
+   is the closest the popup can get to matching the app font instead of
+   falling back to the system default. */
+.stacked-field select option {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background-color: var(--surface);
 }
 
 .child-manage-link {
@@ -2578,6 +2602,18 @@ button.ghost.add-row:hover {
 
 .confirm-modal .delete-confirm-actions {
   margin: 0;
+}
+
+/* Base .danger-btn/.ghost hardcode height: 38px, sized for short labels
+   like "Delete everything" - a longer confirm label (a dynamic child name
+   can push "Delete <name>" past one line) wraps and gets clipped by that
+   fixed height instead of growing. Let the buttons stretch to fit instead. */
+.confirm-modal .delete-confirm-actions .danger-btn,
+.confirm-modal .delete-confirm-actions .ghost {
+  height: auto;
+  min-height: 38px;
+  white-space: normal;
+  line-height: 1.3;
 }
 
 /* ------------------------------------------------------------------ */

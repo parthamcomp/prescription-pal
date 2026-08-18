@@ -21,6 +21,29 @@ export function formatSourceDate(iso: string | null): string | null {
   return d.toLocaleDateString("en-GB", opts);
 }
 
+// "xx year(s) yy month(s)" as of referenceDate (the prescription's visit
+// date, not today) - a record documents how old the child was at the visit,
+// not how old they are now.
+export function formatChildAge(dateOfBirth: string, referenceDate: string): string | null {
+  const dob = new Date(`${dateOfBirth}T00:00:00`);
+  const ref = new Date(`${referenceDate}T00:00:00`);
+  if (Number.isNaN(dob.getTime()) || Number.isNaN(ref.getTime())) return null;
+  if (ref < dob) return null;
+
+  let years = ref.getFullYear() - dob.getFullYear();
+  let months = ref.getMonth() - dob.getMonth();
+  if (ref.getDate() < dob.getDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? "year" : "years"}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? "month" : "months"}`);
+  return parts.length > 0 ? parts.join(" ") : "0 months";
+}
+
 export function sourceMeta(s: Source): string {
   const parts = [s.prescriber, formatSourceDate(s.date)].filter(Boolean) as string[];
   let meta = parts.join(" · ");
