@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Child, childrenApi } from "../api";
+import { useConfirm } from "./ConfirmDialog";
 
 interface ChildrenModalProps {
   onClose: () => void;
@@ -13,6 +14,7 @@ export default function ChildrenModal({
   onChanged,
 }: ChildrenModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const confirm = useConfirm();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -79,9 +81,13 @@ export default function ChildrenModal({
   };
 
   const remove = async (c: Child) => {
-    if (!confirm(`Remove ${c.name}? Their records will stay, just unassigned.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Remove ${c.name}?`,
+      message: `This permanently deletes every prescription record saved for ${c.name} too. This can't be undone.`,
+      confirmLabel: "Delete child & records",
+      danger: true,
+    });
+    if (!ok) return;
     setBusyId(c.id);
     setError("");
     try {

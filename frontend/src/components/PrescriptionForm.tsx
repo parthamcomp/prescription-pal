@@ -5,6 +5,7 @@ export interface PrescriptionFormProps {
   onChange: (p: Prescription) => void;
   lowConfidence: string[];
   childList: Child[];
+  onManageChildren: () => void;
 }
 
 function fieldFlag(lowConfidence: string[], path: string): boolean {
@@ -16,6 +17,7 @@ export default function PrescriptionForm({
   onChange,
   lowConfidence,
   childList,
+  onManageChildren,
 }: PrescriptionFormProps) {
   const set = <K extends keyof Prescription>(key: K, v: Prescription[K]) =>
     onChange({ ...value, [key]: v });
@@ -103,7 +105,7 @@ export default function PrescriptionForm({
           </div>
         </div>
       ))}
-      <button type="button" className="ghost" onClick={addMed}>
+      <button type="button" className="ghost add-row" onClick={addMed}>
         + Add another medication
       </button>
 
@@ -132,21 +134,33 @@ export default function PrescriptionForm({
         </label>
       </div>
 
-      {childList.length > 0 && (
-        <label>
-          Child
+      {childList.length > 0 ? (
+        <label className="stacked-field">
+          Child *
           <select
             value={value.child_id ?? ""}
             onChange={(e) => set("child_id", e.target.value || null)}
           >
-            <option value="">Not assigned</option>
+            <option value="" disabled>
+              Select a child
+            </option>
             {childList.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
+          <button type="button" className="child-manage-link" onClick={onManageChildren}>
+            + Add another child
+          </button>
         </label>
+      ) : (
+        <div className="no-children-callout">
+          <p>You need to add a child before you can save a record.</p>
+          <button type="button" className="ghost" onClick={onManageChildren}>
+            + Add a child
+          </button>
+        </div>
       )}
 
       <div className="review-grid">
@@ -168,7 +182,7 @@ export default function PrescriptionForm({
         </label>
       </div>
 
-      <label>
+      <label className="stacked-field">
         Complaint
         <textarea
           value={value.complaint}
@@ -176,7 +190,7 @@ export default function PrescriptionForm({
           rows={2}
         />
       </label>
-      <label>
+      <label className="stacked-field">
         Diagnosis
         <textarea
           value={value.diagnosis}
@@ -184,7 +198,7 @@ export default function PrescriptionForm({
           rows={2}
         />
       </label>
-      <label>
+      <label className="stacked-field">
         Additional notes
         <textarea
           value={value.additional_notes}
@@ -198,6 +212,9 @@ export default function PrescriptionForm({
 
 export function validatePrescription(p: Prescription): string[] {
   const errors: string[] = [];
+  if (!p.child_id) {
+    errors.push("Choose which child this record belongs to.");
+  }
   if (!p.medications.some((m) => m.name.trim())) {
     errors.push("At least one medication name is required.");
   }

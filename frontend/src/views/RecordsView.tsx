@@ -118,11 +118,13 @@ function RecordDetail({
   childList,
   onDelete,
   onUpdated,
+  onManageChildren,
 }: {
   record: Prescription;
   childList: Child[];
   onDelete: (id: string) => void;
   onUpdated: () => void;
+  onManageChildren: () => void;
 }) {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -195,6 +197,7 @@ function RecordDetail({
                 onChange={setDraft}
                 lowConfidence={[]}
                 childList={childList}
+                onManageChildren={onManageChildren}
               />
               {errors.length > 0 && (
                 <div className="review-errors">
@@ -304,6 +307,7 @@ interface RecordsViewProps {
   error: string;
   onDelete: (id: string) => void;
   onUpdated: () => void;
+  onManageChildren: () => void;
 }
 
 export default function RecordsView({
@@ -315,6 +319,7 @@ export default function RecordsView({
   error,
   onDelete,
   onUpdated,
+  onManageChildren,
 }: RecordsViewProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -406,6 +411,7 @@ export default function RecordsView({
             childList={childList}
             onDelete={onDelete}
             onUpdated={onUpdated}
+            onManageChildren={onManageChildren}
           />
         </>
       ) : (

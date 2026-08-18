@@ -6,6 +6,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.auth.deps import get_data_owner_id
 from app.db import get_db
+from app.repositories import children as children_repo
 from app.repositories import jobs as jobs_repo
 from app.repositories import prescriptions as repo
 from app.schemas import PrescriptionCreate, PrescriptionOut
@@ -23,6 +24,18 @@ async def _document_and_embedding(data: PrescriptionCreate):
     except Exception:  # noqa: BLE001
         embedding = None
     return document, embedding
+
+
+async def _require_owned_child(
+    db: AsyncSession, owner_id: uuid.UUID, child_id: uuid.UUID
+) -> None:
+    # child_id is a bare UUID at the Pydantic level - nothing there confirms
+    # it's actually one of this account's children rather than, say, another
+    # user's. Records now drive real behavior off that ownership (cascade
+    # delete when the child is removed), so an unchecked id would let a
+    # request attach a record to a child it has no access to.
+    if await children_repo.get_for_user(db, owner_id, child_id) is None:
+        raise HTTPException(status_code=400, detail="Child not found")
 
 
 @router.get("", response_model=list[PrescriptionOut])
@@ -56,6 +69,8 @@ async def create_prescription(
     owner_id: uuid.UUID = Depends(get_data_owner_id),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_owned_child(db, owner_id, body.child_id)
+
     image_keys: list[str] = []
     if body.source_job_id is not None:
         job = await jobs_repo.get_for_user(db, owner_id, body.source_job_id)
@@ -81,6 +96,8 @@ async def update_prescription(
     owner_id: uuid.UUID = Depends(get_data_owner_id),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_owned_child(db, owner_id, body.child_id)
+
     document, embedding = await _document_and_embedding(body)
     model = await repo.update_for_user(
         db, owner_id, prescription_id, body, document, embedding

@@ -26,6 +26,20 @@ already exists):
 docker compose exec -T db psql -U app -d app -c "CREATE DATABASE app_test"
 ```
 
+**Schema drift gotcha:** the `engine` fixture (`tests/integration/conftest.py`)
+builds `app_test`'s schema by calling `Base.metadata.create_all` against
+whatever `app_test` already has - it only creates tables that don't exist
+yet, it never `ALTER`s an existing one. If you change a column/constraint on
+an existing table (e.g. a `ForeignKey`'s `ondelete` behavior) and `app_test`
+was created before that change, `create_all` silently no-ops and the tests
+run against the *old* schema - the request under test can return the right
+HTTP status while the underlying DB does the wrong thing, since the schema
+just didn't move. Drop and recreate `app_test` whenever this happens (safe -
+it's fully rebuilt and truncated per test anyway):
+```powershell
+docker compose exec -T db psql -U app -d app -c "DROP DATABASE app_test" -c "CREATE DATABASE app_test"
+```
+
 ```powershell
 # Tier 1 - unit (target: <30s, run on every save)
 docker compose run --rm -v "${PWD}\backend:/app" backend sh -c "pip install -q -r requirements-dev.txt && python -m pytest tests/unit -v"

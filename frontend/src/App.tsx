@@ -8,6 +8,7 @@ import {
 import { Child, Med, Prescription, childrenApi, medicationsApi, prescriptionsApi } from "./api";
 import { useAuth } from "./auth/AuthContext";
 import ChildrenModal from "./components/ChildrenModal";
+import { useConfirm } from "./components/ConfirmDialog";
 import Logo from "./components/Logo";
 import ProfileModal from "./components/ProfileModal";
 import { MED_COLOR_HEX, pluralize } from "./lib/format";
@@ -57,6 +58,7 @@ function viewForPath(pathname: string): Tab {
 
 export default function App() {
   const { user, logout } = useAuth();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -126,7 +128,7 @@ export default function App() {
 
   const deletePrescription = async (id: string) => {
     if (!id) return;
-    if (!confirm("Delete this record?")) return;
+    if (!(await confirm({ message: "Delete this record?", confirmLabel: "Delete", danger: true }))) return;
     try {
       await prescriptionsApi.delete(id);
       if (location.pathname === `/records/${id}`) navigate("/records");
@@ -261,11 +263,13 @@ export default function App() {
           error={recordsError}
           onDelete={deletePrescription}
           onUpdated={loadPrescriptions}
+          onManageChildren={openChildrenModal}
         />
         <UploadView
           visible={view === "upload"}
           hasRecords={prescriptions.length > 0}
           childList={children}
+          onManageChildren={openChildrenModal}
           onSaved={() => {
             loadPrescriptions();
             loadMedications();

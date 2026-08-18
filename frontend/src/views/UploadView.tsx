@@ -2,33 +2,33 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Child,
-  JobOut,
   Prescription,
   emptyMedication,
   emptyPrescription,
-  jobsApi,
   prescriptionsApi,
 } from "../api";
+import { useConfirm } from "../components/ConfirmDialog";
 import PrescriptionForm, { validatePrescription } from "../components/PrescriptionForm";
-
-function jobLabel(job: JobOut): string {
-  const name = job.extracted?.medications?.[0]?.name?.trim();
-  const when = job.created_at ? new Date(job.created_at).toLocaleDateString() : "";
-  if (name) return `${name}${when ? ` · ${when}` : ""}`;
-  return when ? `Uploaded ${when}` : "Unfinished upload";
-}
 
 interface UploadViewProps {
   visible: boolean;
   hasRecords: boolean;
   childList: Child[];
+  onManageChildren: () => void;
   onSaved: () => void;
 }
 
 type Stage = "idle" | "uploading" | "review";
 
-export default function UploadView({ visible, hasRecords, childList, onSaved }: UploadViewProps) {
+export default function UploadView({
+  visible,
+  hasRecords,
+  childList,
+  onManageChildren,
+  onSaved,
+}: UploadViewProps) {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -50,19 +50,6 @@ export default function UploadView({ visible, hasRecords, childList, onSaved }: 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [sourceJobId, setSourceJobId] = useState<string | null>(null);
 
-  const [pendingJobs, setPendingJobs] = useState<JobOut[]>([]);
-  const loadPendingJobs = async () => {
-    try {
-      const jobs = await jobsApi.list();
-      setPendingJobs(jobs.filter((j) => j.status === "done" && !j.saved));
-    } catch {
-      // pending-uploads list is a convenience, not load-bearing
-    }
-  };
-  useEffect(() => {
-    if (visible) loadPendingJobs();
-  }, [visible]);
-
   const reset = () => {
     setStage("idle");
     setProgress(0);
@@ -73,21 +60,6 @@ export default function UploadView({ visible, hasRecords, childList, onSaved }: 
     setLowConfidence([]);
     setValidationErrors([]);
     setSourceJobId(null);
-  };
-
-  const resumeJob = (job: JobOut) => {
-    setOcrText(job.raw_text);
-    const extracted = job.extracted ?? { ...emptyPrescription(), low_confidence: [] };
-    const { low_confidence, ...rest } = extracted;
-    const p = rest as Prescription;
-    if (!p.medications || p.medications.length === 0) {
-      p.medications = [emptyMedication()];
-    }
-    setDraft(p);
-    setLowConfidence(low_confidence ?? []);
-    setSource("photo");
-    setSourceJobId(job.id);
-    setStage("review");
   };
 
   const MAX_PAGES = 6;
@@ -123,6 +95,9 @@ export default function UploadView({ visible, hasRecords, childList, onSaved }: 
       const p = rest as Prescription;
       if (!p.medications || p.medications.length === 0) {
         p.medications = [emptyMedication()];
+      }
+      if (!p.child_id && childList.length === 1) {
+        p.child_id = childList[0].id;
       }
       setDraft(p);
       setLowConfidence(low_confidence ?? []);
@@ -219,15 +194,18 @@ export default function UploadView({ visible, hasRecords, childList, onSaved }: 
     typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
 
   const startManual = () => {
-    setDraft(emptyPrescription());
+    setDraft({
+      ...emptyPrescription(),
+      child_id: childList.length === 1 ? childList[0].id : null,
+    });
     setLowConfidence([]);
     setSource("typed");
     setStage("review");
   };
 
-  const discard = () => {
+  const discard = async () => {
     if (ocrText || source === "typed") {
-      if (!confirm("Discard this record?")) return;
+      if (!(await confirm({ message: "Discard this record?", confirmLabel: "Discard", danger: true }))) return;
     }
     reset();
   };
@@ -246,7 +224,6 @@ export default function UploadView({ visible, hasRecords, childList, onSaved }: 
         source_job_id: sourceJobId,
       });
       onSaved();
-      loadPendingJobs();
       if (addAnother) {
         reset();
         return;
@@ -275,27 +252,6 @@ export default function UploadView({ visible, hasRecords, childList, onSaved }: 
 
       <div className="content--page">
         <div className="page upload-page">
-          {stage === "idle" && pendingJobs.length > 0 && (
-            <div className="pending-jobs">
-              <div className="pending-jobs-title">
-                {pendingJobs.length === 1
-                  ? "You have an unfinished upload"
-                  : `You have ${pendingJobs.length} unfinished uploads`}
-              </div>
-              {pendingJobs.map((job) => (
-                <button
-                  key={job.id}
-                  type="button"
-                  className="pending-job-row"
-                  onClick={() => resumeJob(job)}
-                >
-                  <span>{jobLabel(job)}</span>
-                  <span className="pending-job-resume">Resume →</span>
-                </button>
-              ))}
-            </div>
-          )}
-
           {stage !== "review" && (
             <div
               className={`dropzone ${dragOver ? "drag-over" : ""}`}
@@ -419,6 +375,7 @@ export default function UploadView({ visible, hasRecords, childList, onSaved }: 
                   onChange={setDraft}
                   lowConfidence={lowConfidence}
                   childList={childList}
+                  onManageChildren={onManageChildren}
                 />
 
                 <div className="safety-note">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HouseholdStatus, accountApi, householdApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { useConfirm } from "./ConfirmDialog";
 
 interface ProfileModalProps {
   onClose: () => void;
@@ -16,6 +17,7 @@ export default function ProfileModal({
   onManageChildren,
 }: ProfileModalProps) {
   const { user, logout, refreshUser } = useAuth();
+  const confirm = useConfirm();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [editingName, setEditingName] = useState(false);
@@ -77,7 +79,12 @@ export default function ProfileModal({
   };
 
   const removeMember = async (memberId: string) => {
-    if (!confirm("Remove this person's access to your account?")) return;
+    const ok = await confirm({
+      message: "Remove this person's access to your account?",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     setSharingBusy(true);
     setSharingError("");
     try {
@@ -91,7 +98,12 @@ export default function ProfileModal({
   };
 
   const leaveHousehold = async () => {
-    if (!confirm("Stop sharing this account? You'll only see your own records.")) return;
+    const ok = await confirm({
+      message: "Stop sharing this account? You'll only see your own records.",
+      confirmLabel: "Stop sharing",
+      danger: true,
+    });
+    if (!ok) return;
     setSharingBusy(true);
     setSharingError("");
     try {

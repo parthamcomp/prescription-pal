@@ -27,7 +27,11 @@ def medication(**overrides) -> dict:
 
 def prescription_payload(**overrides) -> dict:
     """A dict matching PrescriptionCreate - handy for both schema
-    validation tests and POST /api/prescriptions request bodies."""
+    validation tests and POST /api/prescriptions request bodies.
+
+    child_id has no default - PrescriptionCreate requires a real one (the
+    router also checks it belongs to the caller's account), so callers must
+    pass an id from a child created via make_child() in the same test."""
     data = {
         "doctor_name": "Dr. Patel",
         "date_of_visit": "2026-06-01",
@@ -36,7 +40,6 @@ def prescription_payload(**overrides) -> dict:
         "medications": [medication()],
         "child_age": "4 years",
         "child_weight": "16kg",
-        "child_id": None,
         "additional_notes": "",
     }
     data.update(overrides)

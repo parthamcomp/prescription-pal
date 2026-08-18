@@ -41,6 +41,13 @@ class PrescriptionBase(BaseModel):
 
 
 class PrescriptionCreate(PrescriptionBase):
+    # Every record must belong to a child - overrides PrescriptionBase's
+    # Optional[UUID] (which PrescriptionOut still uses, since rows created
+    # before this requirement existed can have a NULL child_id). The router
+    # also checks this id actually belongs to the caller's account, since a
+    # Pydantic UUID check alone can't confirm ownership.
+    child_id: UUID
+
     # If this draft came from a reviewed OCR job, linking it back lets the
     # backend carry the job's photo(s) onto the saved record and mark the
     # job as saved (see routers/prescriptions.py::create_prescription) -

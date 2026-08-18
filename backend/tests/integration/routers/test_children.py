@@ -5,7 +5,10 @@ Contains the AUTHORIZATION-TABLE and CONCURRENCY reference implementations.
 """
 import asyncio
 
-from tests.builders import make_account_link, make_child, make_user
+from sqlalchemy import select
+
+from app.models_db import Prescription
+from tests.builders import make_account_link, make_child, make_prescription, make_user
 from tests.integration.conftest import auth_cookies
 
 
@@ -91,3 +94,51 @@ class TestConcurrentChildCreation:
         # Exactly one 200 and one clean 400 (IntegrityError caught by the
         # router) - never two 200s (duplicate row) and never a 500.
         assert statuses == [200, 400]
+
+
+# --------------------------------------------------------------------------
+# DELETE-CASCADE REFERENCE IMPLEMENTATION
+# A child now owns their prescriptions (see models_db.py:Prescription.child_id
+# and CLAUDE.md's "no unassigned records" policy) - removing the child must
+# remove their records with it via the DB's ON DELETE CASCADE, not silently
+# null the FK. This is exactly the kind of thing that looks right by
+# inspection (the ORM column declares ondelete="CASCADE") and is wrong at
+# runtime unless the relationship() also has passive_deletes=True - without
+# it, SQLAlchemy's own unit-of-work nulls the FK before the DELETE ever
+# reaches Postgres, so the CASCADE constraint never actually fires. Caught
+# live via manual browser verification before this test existed; this test
+# is what stops it silently regressing.
+# --------------------------------------------------------------------------
+class TestDeleteChildCascadesPrescriptions:
+    async def test_deleting_a_child_deletes_their_prescriptions(self, client, db_session):
+        owner = await make_user(db_session)
+        child = await make_child(db_session, owner.id)
+        prescription = await make_prescription(db_session, owner.id, child_id=child.id)
+
+        resp = await client.delete(
+            f"/api/children/{child.id}", cookies=auth_cookies(owner.id)
+        )
+        assert resp.status_code == 200
+
+        remaining = await db_session.execute(
+            select(Prescription).where(Prescription.id == prescription.id)
+        )
+        assert remaining.scalar_one_or_none() is None
+
+    async def test_deleting_a_child_leaves_another_childs_prescriptions_alone(
+        self, client, db_session
+    ):
+        owner = await make_user(db_session)
+        keep_child = await make_child(db_session, owner.id)
+        delete_child = await make_child(db_session, owner.id)
+        kept = await make_prescription(db_session, owner.id, child_id=keep_child.id)
+        await make_prescription(db_session, owner.id, child_id=delete_child.id)
+
+        resp = await client.delete(
+            f"/api/children/{delete_child.id}", cookies=auth_cookies(owner.id)
+        )
+        assert resp.status_code == 200
+
+        remaining = await db_session.execute(select(Prescription))
+        remaining_ids = {row.id for row in remaining.scalars().all()}
+        assert remaining_ids == {kept.id}

@@ -610,16 +610,9 @@
             "type": "string"
           },
           "child_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Child Id"
+            "format": "uuid",
+            "title": "Child Id",
+            "type": "string"
           },
           "child_weight": {
             "default": "",
@@ -683,6 +676,9 @@
             "type": "string"
           }
         },
+        "required": [
+          "child_id"
+        ],
         "title": "PrescriptionCreate",
         "type": "object"
       },

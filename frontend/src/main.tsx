@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import App from "./App";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 import Join from "./pages/Join";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -24,40 +25,42 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route
-            path="/login"
-            element={
-              <PublicOnly>
-                <Login />
-              </PublicOnly>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicOnly>
-                <Register />
-              </PublicOnly>
-            }
-          />
-          <Route
-            path="/join/:token"
-            element={
-              <Protected>
-                <Join />
-              </Protected>
-            }
-          />
-          <Route
-            path="/*"
-            element={
-              <Protected>
-                <App />
-              </Protected>
-            }
-          />
-        </Routes>
+        <ConfirmProvider>
+          <Routes>
+            <Route
+              path="/login"
+              element={
+                <PublicOnly>
+                  <Login />
+                </PublicOnly>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicOnly>
+                  <Register />
+                </PublicOnly>
+              }
+            />
+            <Route
+              path="/join/:token"
+              element={
+                <Protected>
+                  <Join />
+                </Protected>
+              }
+            />
+            <Route
+              path="/*"
+              element={
+                <Protected>
+                  <App />
+                </Protected>
+              }
+            />
+          </Routes>
+        </ConfirmProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

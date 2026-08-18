@@ -76,7 +76,16 @@ class Child(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="children")
-    prescriptions: Mapped[list["Prescription"]] = relationship(back_populates="child")
+    # passive_deletes=True: without it, SQLAlchemy's unit-of-work emits its
+    # own UPDATE ... SET child_id = NULL for any loaded prescriptions before
+    # deleting the child (its default behavior for a relationship without an
+    # explicit delete cascade) - that runs *instead of* the DB's ON DELETE
+    # CASCADE ever firing, since the rows no longer reference this child by
+    # the time the DELETE hits. This flag tells the ORM to step aside and
+    # let Postgres enforce the FK's ON DELETE CASCADE itself.
+    prescriptions: Mapped[list["Prescription"]] = relationship(
+        back_populates="child", passive_deletes=True
+    )
 
 
 class Prescription(Base):
@@ -98,13 +107,16 @@ class Prescription(Base):
     medications: Mapped[list] = mapped_column(JSONB, default=list)
     child_age: Mapped[str] = mapped_column(String(50), default="")
     child_weight: Mapped[str] = mapped_column(String(50), default="")
-    # Which child this visit belongs to. Nullable so pre-existing records
-    # (from before this column existed) start unassigned rather than
-    # failing to migrate; ON DELETE SET NULL so removing a child profile
-    # orphans their history instead of destroying it.
+    # Which child this visit belongs to. The API requires a child on every
+    # create/update (see PrescriptionCreate) so there are no new unassigned
+    # records going forward; this column stays nullable at the DB level only
+    # to avoid breaking rows created before that requirement existed.
+    # ON DELETE CASCADE: a child profile is the record's owner in this
+    # model, so removing the child removes their prescription history with
+    # it rather than leaving orphaned rows - see repositories/children.py.
     child_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
-        ForeignKey("children.id", ondelete="SET NULL"),
+        ForeignKey("children.id", ondelete="CASCADE"),
         index=True,
         nullable=True,
     )
