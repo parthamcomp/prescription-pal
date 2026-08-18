@@ -52,6 +52,16 @@ docker compose run --rm -v "${PWD}\backend:/app" backend sh -c "pip install -q -
 # TEST_DATABASE_URL, mount the Docker socket) - see tests/integration/conftest.py.
 docker compose run --rm -v "${PWD}\backend:/app" -e TEST_DATABASE_URL="postgresql+asyncpg://app:app@db:5432/app_test" backend sh -c "pip install -q -r requirements-dev.txt && python -m pytest tests/integration -v"
 
+# tests/integration/test_worker.py needs DATABASE_URL set too, not just
+# TEST_DATABASE_URL: worker.py opens its own session via app.db.SessionLocal
+# directly (no Depends(get_db) to override, unlike every router test in this
+# suite), so it connects wherever DATABASE_URL pointed at import time. Set
+# both to the same value so the worker's session and the test's db_session
+# fixture hit the same actual database - otherwise the worker tries (and
+# fails) to reach the default postgresql+asyncpg://app:app@localhost:5432/app_test
+# fallback, which doesn't exist inside this container.
+docker compose run --rm -v "${PWD}\backend:/app" -e TEST_DATABASE_URL="postgresql+asyncpg://app:app@db:5432/app_test" -e DATABASE_URL="postgresql+asyncpg://app:app@db:5432/app_test" backend sh -c "pip install -q -r requirements-dev.txt && python -m pytest tests/integration/test_worker.py -v"
+
 # Tier 4 - contract (target: <1min, run on every commit)
 docker compose run --rm -v "${PWD}\backend:/app" backend sh -c "pip install -q -r requirements-dev.txt && python -m pytest tests/contract -v"
 

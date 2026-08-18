@@ -58,7 +58,20 @@ def stub_openai(monkeypatch):
     mock so a test can configure specific return values or assert on calls.
     Default behavior: chat completions return a minimal valid ChatResponse
     JSON string; embeddings return a fixed-length zero vector.
+
+    embeddings.py and llm.py both do `from app.services.openai_client
+    import client` - that binds their own module-level name to the same
+    object openai_client.client pointed to *at import time*, so patching
+    only openai_client.client leaves those two modules holding the old
+    (real) client. Every module that imports the name has to be patched
+    individually; missing one doesn't fail loudly, it just means that
+    module quietly makes a real network call with a fake API key, which
+    the app's own error-tolerant code paths (embed_text failures degrade
+    to None, chat failures degrade to a fallback message) can mask as a
+    passing test.
     """
+    import app.services.embeddings as embeddings_module
+    import app.services.llm as llm_module
     import app.services.openai_client as openai_client_module
 
     mock_client = AsyncMock()
@@ -80,6 +93,8 @@ def stub_openai(monkeypatch):
     mock_client.chat.completions.create = _default_chat
     mock_client.embeddings.create = _default_embed
     monkeypatch.setattr(openai_client_module, "client", mock_client)
+    monkeypatch.setattr(embeddings_module, "client", mock_client)
+    monkeypatch.setattr(llm_module, "client", mock_client)
     yield mock_client
 
 
