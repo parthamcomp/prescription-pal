@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Child, Medication, Prescription, emptyMedication } from "../api";
 import { formatChildAge } from "../lib/format";
+import Select from "./Select";
 
 export interface PrescriptionFormProps {
   value: Prescription;
@@ -153,19 +154,13 @@ export default function PrescriptionForm({
       {childList.length > 0 ? (
         <label className="stacked-field">
           Child *
-          <select
+          <Select
             value={value.child_id ?? ""}
-            onChange={(e) => set("child_id", e.target.value || null)}
-          >
-            <option value="" disabled>
-              Select a child
-            </option>
-            {childList.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => set("child_id", v || null)}
+            options={childList.map((c) => ({ value: c.id, label: c.name }))}
+            placeholder="Select a child"
+            ariaLabel="Child"
+          />
           <button type="button" className="child-manage-link" onClick={onManageChildren}>
             + Add another child
           </button>

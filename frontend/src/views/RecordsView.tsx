@@ -3,6 +3,7 @@ import { matchPath, useLocation, useNavigate } from "react-router-dom";
 import { Child, Med, Prescription, prescriptionsApi } from "../api";
 import Logo from "../components/Logo";
 import PrescriptionForm, { validatePrescription } from "../components/PrescriptionForm";
+import Select from "../components/Select";
 import {
   MED_COLOR_HEX,
   colorKeyForRecord,
@@ -455,19 +456,16 @@ export default function RecordsView({
               ))}
             <div className="panel-head-spacer" />
             {childList.length > 0 && (
-              <select
+              <Select
                 className="sort-btn"
                 value={childFilter}
-                onChange={(e) => setChildFilter(e.target.value)}
-                aria-label="Filter by child"
-              >
-                <option value="all">All children</option>
-                {childList.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setChildFilter}
+                options={[
+                  { value: "all", label: "All children" },
+                  ...childList.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+                ariaLabel="Filter by child"
+              />
             )}
             <button
               type="button"
