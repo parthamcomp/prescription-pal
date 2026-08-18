@@ -1,7 +1,9 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.deps import get_current_user
+from app.auth.deps import get_current_user, get_data_owner_id
 from app.db import get_db
 from app.logging_conf import logger
 from app.metrics import timed_request
@@ -21,6 +23,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 async def chat(
     body: ChatRequest,
     user: User = Depends(get_current_user),
+    owner_id: uuid.UUID = Depends(get_data_owner_id),
     db: AsyncSession = Depends(get_db),
 ):
     question = body.question.strip()
@@ -31,7 +34,7 @@ async def chat(
         try:
             result = await rag.answer(
                 db,
-                user.id,
+                owner_id,
                 question,
                 child_id=body.child_id,
                 date_from=body.date_from,

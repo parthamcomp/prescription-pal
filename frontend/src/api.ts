@@ -15,8 +15,35 @@ export interface Prescription {
   medications: Medication[];
   child_age: string;
   child_weight: string;
+  child_id?: string | null;
   additional_notes: string;
   source_text?: string;
+  // Write-only: links a saved record back to the OCR job it came from, so
+  // the backend can carry that job's photo(s) onto the record and mark the
+  // job as reviewed. Never present on a record read back from the API.
+  source_job_id?: string | null;
+}
+
+export interface Child {
+  id: string;
+  name: string;
+  date_of_birth: string | null;
+}
+
+export interface Member {
+  id: string;
+  email: string;
+  display_name: string;
+}
+
+export interface HouseholdStatus {
+  owner_email: string | null;
+  members: Member[];
+}
+
+export interface Invite {
+  token: string;
+  expires_at: string;
 }
 
 export type ColorKey = "violet" | "mint" | "amber" | "sky";
@@ -97,6 +124,8 @@ export interface JobOut {
   raw_text: string;
   extracted: ExtractedDraft | null;
   error: string;
+  saved: boolean;
+  created_at: string | null;
 }
 
 export const emptyMedication = (): Medication => ({
@@ -115,6 +144,7 @@ export const emptyPrescription = (): Prescription => ({
   medications: [emptyMedication()],
   child_age: "",
   child_weight: "",
+  child_id: null,
   additional_notes: "",
 });
 
@@ -246,14 +276,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // fetch() has no upload-progress event, so the initial multipart POST uses
 // XHR instead - the polling loop that follows stays on the plain request()
 // helper, since progress only matters for the byte-upload phase.
-function uploadFileWithProgress(
-  file: File,
+function uploadFilesWithProgress(
+  files: File[],
   onProgress: (pct: number) => void,
   signal?: AbortSignal
 ): Promise<JobCreated> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
-    form.append("file", file);
+    for (const file of files) form.append("files", file);
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_BASE}/api/ocr`);
     xhr.withCredentials = true;
@@ -303,6 +333,7 @@ export const prescriptionsApi = {
     request<{ deleted: boolean }>(`/api/prescriptions/${id}`, {
       method: "DELETE",
     }),
+  photos: (id: string) => request<string[]>(`/api/prescriptions/${id}/photos`),
   chat: (question: string) =>
     request<AnswerPayload>("/api/chat", {
       method: "POST",
@@ -310,17 +341,19 @@ export const prescriptionsApi = {
       body: JSON.stringify({ question }),
     }),
 
-  // Async OCR: submit the image (with real upload progress), then poll the
-  // job until it finishes. onProgress/signal are optional so existing
-  // callers that don't need them are unaffected.
+  // Async OCR: submit the image(s) (with real upload progress), then poll
+  // the job until it finishes. A multi-page upload is still one job - the
+  // worker OCRs each page and merges them into one extraction.
+  // onStatus/onProgress/signal are optional so existing callers are
+  // unaffected.
   ocrAndWait: async (
-    file: File,
+    files: File[],
     onStatus?: (status: string) => void,
     onProgress?: (pct: number) => void,
     signal?: AbortSignal
   ): Promise<JobOut> => {
-    const { job_id } = await uploadFileWithProgress(
-      file,
+    const { job_id } = await uploadFilesWithProgress(
+      files,
       onProgress ?? (() => {}),
       signal
     );
@@ -339,7 +372,49 @@ export const prescriptionsApi = {
   },
 };
 
+// --------------------------- household / sharing ---------------------------
+export const householdApi = {
+  status: () => request<HouseholdStatus>("/api/household/status"),
+  invite: () =>
+    request<Invite>("/api/household/invite", { method: "POST" }),
+  join: (token: string) =>
+    request<HouseholdStatus>("/api/household/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    }),
+  removeMember: (memberId: string) =>
+    request<{ ok: boolean }>(`/api/household/members/${memberId}`, {
+      method: "DELETE",
+    }),
+  leave: () => request<{ ok: boolean }>("/api/household/leave", { method: "POST" }),
+};
+
+// --------------------------- jobs ---------------------------
+export const jobsApi = {
+  list: (limit = 50) => request<JobOut[]>(`/api/jobs?limit=${limit}`),
+};
+
 // --------------------------- medications (derived) ---------------------------
 export const medicationsApi = {
   list: () => request<Med[]>("/api/medications"),
+};
+
+// --------------------------- children ---------------------------
+export const childrenApi = {
+  list: () => request<Child[]>("/api/children"),
+  create: (name: string, date_of_birth: string | null) =>
+    request<Child>("/api/children", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, date_of_birth }),
+    }),
+  update: (id: string, name: string, date_of_birth: string | null) =>
+    request<Child>(`/api/children/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, date_of_birth }),
+    }),
+  delete: (id: string) =>
+    request<{ deleted: boolean }>(`/api/children/${id}`, { method: "DELETE" }),
 };

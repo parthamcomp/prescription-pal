@@ -1,14 +1,16 @@
 import json
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
-from app.auth.deps import get_current_user
+from app.auth.deps import get_current_user, get_data_owner_id
 from app.auth.security import hash_password, verify_password
 from app.db import get_db
 from app.models_db import User
+from app.repositories import account_links as account_links_repo
 from app.repositories import children as children_repo
 from app.repositories import prescriptions as prescriptions_repo
 from app.repositories import users as users_repo
@@ -54,10 +56,11 @@ async def change_password(
 @router.get("/export")
 async def export_account(
     user: User = Depends(get_current_user),
+    owner_id: uuid.UUID = Depends(get_data_owner_id),
     db: AsyncSession = Depends(get_db),
 ):
-    prescriptions = await prescriptions_repo.list_for_user(db, user.id, limit=10000)
-    children = await children_repo.list_for_user(db, user.id)
+    prescriptions = await prescriptions_repo.list_for_user(db, owner_id, limit=10000)
+    children = await children_repo.list_for_user(db, owner_id)
 
     payload = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
@@ -96,6 +99,11 @@ async def delete_account(
     if body.confirm.strip().lower() != DELETE_ACCOUNT_PHRASE:
         raise HTTPException(
             status_code=400, detail=f'Type "{DELETE_ACCOUNT_PHRASE}" to confirm.'
+        )
+    if await account_links_repo.has_members(db, user.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Remove everyone you've shared your account with before deleting it.",
         )
     user_id = user.id
     await users_repo.delete_user(db, user)

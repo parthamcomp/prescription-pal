@@ -20,6 +20,7 @@ from app.schemas import (
 from app.services.embeddings import embed_text
 from app.services.llm import chat_completion
 from app.services.meds import color_key_for, parse_duration_days, shorten_duration
+from app.services.objects import presigned_url
 
 SAFETY_NOTE_TEXT = (
     "This is what your prescription says — not medical advice. Check with your "
@@ -165,6 +166,16 @@ def _build_source(hit: Prescription) -> SourceOut:
     else:
         title = "Prescription"
 
+    thumbnail_url = None
+    if hit.image_keys:
+        try:
+            thumbnail_url = presigned_url(hit.image_keys[0])
+        except Exception:  # noqa: BLE001
+            # A source card degrades to its plain glyph tile if signing
+            # fails (e.g. storage misconfigured) - never break the answer
+            # over a thumbnail.
+            thumbnail_url = None
+
     return SourceOut(
         id=str(hit.id),
         kind="prescription",
@@ -172,6 +183,7 @@ def _build_source(hit: Prescription) -> SourceOut:
         prescriber=hit.doctor_name or None,
         date=hit.date_of_visit.isoformat() if hit.date_of_visit else None,
         page=None,
+        thumbnail_url=thumbnail_url,
     )
 
 

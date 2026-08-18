@@ -7,13 +7,26 @@ from app.models_db import ProcessingJob
 
 
 async def create_job(
-    db: AsyncSession, user_id: uuid.UUID, image_key: str
+    db: AsyncSession, user_id: uuid.UUID, image_keys: list[str]
 ) -> ProcessingJob:
-    job = ProcessingJob(user_id=user_id, image_key=image_key, status="queued")
+    job = ProcessingJob(user_id=user_id, image_keys=image_keys, status="queued")
     db.add(job)
     await db.commit()
     await db.refresh(job)
     return job
+
+
+async def list_for_user(
+    db: AsyncSession, user_id: uuid.UUID, limit: int = 50, offset: int = 0
+) -> list[ProcessingJob]:
+    result = await db.execute(
+        select(ProcessingJob)
+        .where(ProcessingJob.user_id == user_id)
+        .order_by(ProcessingJob.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars().all())
 
 
 async def get_for_user(
@@ -51,3 +64,8 @@ async def update_status(
     await db.commit()
     await db.refresh(job)
     return job
+
+
+async def mark_saved(db: AsyncSession, job: ProcessingJob) -> None:
+    job.saved = True
+    await db.commit()

@@ -72,6 +72,12 @@ services:
           type: redis
           name: medassist-redis
           property: connectionString
+      # The worker never validates a token itself, but it imports the same
+      # Settings object as the API - jwt_secret has no default, so it must
+      # be set or the process won't start. It doesn't need to match the
+      # API's value since the worker never signs/verifies anything with it.
+      - key: JWT_SECRET
+        generateValue: true
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_CHAT_MODEL

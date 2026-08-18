@@ -17,6 +17,7 @@ from app.routers import (
     auth,
     chat,
     children,
+    household,
     jobs,
     medications,
     ocr,
@@ -83,6 +84,7 @@ app.include_router(ocr.router)
 app.include_router(jobs.router)
 app.include_router(medications.router)
 app.include_router(account.router)
+app.include_router(household.router)
 
 
 @app.get("/health")

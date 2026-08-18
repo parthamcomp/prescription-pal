@@ -1,211 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Medication,
+  Child,
+  JobOut,
   Prescription,
   emptyMedication,
   emptyPrescription,
+  jobsApi,
   prescriptionsApi,
 } from "../api";
+import PrescriptionForm, { validatePrescription } from "../components/PrescriptionForm";
 
-interface FormProps {
-  value: Prescription;
-  onChange: (p: Prescription) => void;
-  lowConfidence: string[];
-}
-
-function fieldFlag(lowConfidence: string[], path: string): boolean {
-  return lowConfidence.includes(path);
-}
-
-function ReviewForm({ value, onChange, lowConfidence }: FormProps) {
-  const set = <K extends keyof Prescription>(key: K, v: Prescription[K]) =>
-    onChange({ ...value, [key]: v });
-
-  const setMed = (i: number, key: keyof Medication, v: string) => {
-    const medications = value.medications.map((m, idx) =>
-      idx === i ? { ...m, [key]: v } : m
-    );
-    onChange({ ...value, medications });
-  };
-
-  const addMed = () =>
-    onChange({ ...value, medications: [...value.medications, emptyMedication()] });
-
-  const removeMed = (i: number) =>
-    onChange({
-      ...value,
-      medications: value.medications.filter((_, idx) => idx !== i),
-    });
-
-  const flagged = (field: string) => (fieldFlag(lowConfidence, field) ? "flagged" : "");
-
-  return (
-    <div className="review-fields">
-      {value.medications.map((m, i) => (
-        <div className="review-med-block" key={i}>
-          {value.medications.length > 1 && (
-            <div className="review-med-block-head">
-              <span>Medication {i + 1}</span>
-              <button
-                type="button"
-                className="ghost danger"
-                onClick={() => removeMed(i)}
-                aria-label="Remove medication"
-              >
-                ×
-              </button>
-            </div>
-          )}
-          <div className="review-grid">
-            <label className={flagged(`medications.${i}.name`)}>
-              MEDICATION
-              <input
-                value={m.name}
-                onChange={(e) => setMed(i, "name", e.target.value)}
-                placeholder="e.g. Amoxicillin"
-              />
-              {fieldFlag(lowConfidence, `medications.${i}.name`) && (
-                <span className="field-hint">Please check</span>
-              )}
-            </label>
-            <label className={flagged(`medications.${i}.dosage`)}>
-              STRENGTH / DOSE
-              <input
-                value={m.dosage}
-                onChange={(e) => setMed(i, "dosage", e.target.value)}
-                placeholder="e.g. 250mg"
-              />
-              {fieldFlag(lowConfidence, `medications.${i}.dosage`) && (
-                <span className="field-hint">Please check</span>
-              )}
-            </label>
-            <label className={flagged(`medications.${i}.frequency`)}>
-              HOW OFTEN
-              <input
-                value={m.frequency}
-                onChange={(e) => setMed(i, "frequency", e.target.value)}
-                placeholder="e.g. 3 times a day"
-              />
-              {fieldFlag(lowConfidence, `medications.${i}.frequency`) && (
-                <span className="field-hint">Please check</span>
-              )}
-            </label>
-            <label className={flagged(`medications.${i}.duration`)}>
-              COURSE
-              <input
-                value={m.duration}
-                onChange={(e) => setMed(i, "duration", e.target.value)}
-                placeholder="e.g. 7 days"
-              />
-              {fieldFlag(lowConfidence, `medications.${i}.duration`) && (
-                <span className="field-hint">Please check</span>
-              )}
-            </label>
-          </div>
-        </div>
-      ))}
-      <button type="button" className="ghost" onClick={addMed}>
-        + Add another medication
-      </button>
-
-      <div className="review-grid">
-        <label className={flagged("doctor_name")}>
-          PRESCRIBER
-          <input
-            value={value.doctor_name}
-            onChange={(e) => set("doctor_name", e.target.value)}
-            placeholder="Dr. ..."
-          />
-          {fieldFlag(lowConfidence, "doctor_name") && (
-            <span className="field-hint">Please check</span>
-          )}
-        </label>
-        <label className={flagged("date_of_visit")}>
-          DATE ON PRESCRIPTION
-          <input
-            type="date"
-            value={value.date_of_visit ?? ""}
-            onChange={(e) => set("date_of_visit", e.target.value || null)}
-          />
-          {fieldFlag(lowConfidence, "date_of_visit") && (
-            <span className="field-hint">Please check</span>
-          )}
-        </label>
-      </div>
-
-      <div className="review-grid">
-        <label>
-          Child age
-          <input
-            value={value.child_age}
-            onChange={(e) => set("child_age", e.target.value)}
-            placeholder="e.g. 3 years"
-          />
-        </label>
-        <label>
-          Child weight
-          <input
-            value={value.child_weight}
-            onChange={(e) => set("child_weight", e.target.value)}
-            placeholder="e.g. 14 kg"
-          />
-        </label>
-      </div>
-
-      <label>
-        Complaint
-        <textarea
-          value={value.complaint}
-          onChange={(e) => set("complaint", e.target.value)}
-          rows={2}
-        />
-      </label>
-      <label>
-        Diagnosis
-        <textarea
-          value={value.diagnosis}
-          onChange={(e) => set("diagnosis", e.target.value)}
-          rows={2}
-        />
-      </label>
-      <label>
-        Additional notes
-        <textarea
-          value={value.additional_notes}
-          onChange={(e) => set("additional_notes", e.target.value)}
-          rows={3}
-        />
-      </label>
-    </div>
-  );
-}
-
-function validate(p: Prescription): string[] {
-  const errors: string[] = [];
-  if (!p.medications.some((m) => m.name.trim())) {
-    errors.push("At least one medication name is required.");
-  }
-  if (p.date_of_visit) {
-    const d = new Date(`${p.date_of_visit}T00:00:00`);
-    if (Number.isNaN(d.getTime())) {
-      errors.push("Date on prescription isn't a valid date.");
-    } else if (d.getTime() > Date.now()) {
-      errors.push("Date on prescription can't be in the future.");
-    }
-  }
-  return errors;
+function jobLabel(job: JobOut): string {
+  const name = job.extracted?.medications?.[0]?.name?.trim();
+  const when = job.created_at ? new Date(job.created_at).toLocaleDateString() : "";
+  if (name) return `${name}${when ? ` · ${when}` : ""}`;
+  return when ? `Uploaded ${when}` : "Unfinished upload";
 }
 
 interface UploadViewProps {
   visible: boolean;
   hasRecords: boolean;
+  childList: Child[];
   onSaved: () => void;
 }
 
 type Stage = "idle" | "uploading" | "review";
 
-export default function UploadView({ visible, hasRecords, onSaved }: UploadViewProps) {
+export default function UploadView({ visible, hasRecords, childList, onSaved }: UploadViewProps) {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -226,6 +48,20 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
   const [source, setSource] = useState<"photo" | "typed">("photo");
   const [busy, setBusy] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [sourceJobId, setSourceJobId] = useState<string | null>(null);
+
+  const [pendingJobs, setPendingJobs] = useState<JobOut[]>([]);
+  const loadPendingJobs = async () => {
+    try {
+      const jobs = await jobsApi.list();
+      setPendingJobs(jobs.filter((j) => j.status === "done" && !j.saved));
+    } catch {
+      // pending-uploads list is a convenience, not load-bearing
+    }
+  };
+  useEffect(() => {
+    if (visible) loadPendingJobs();
+  }, [visible]);
 
   const reset = () => {
     setStage("idle");
@@ -236,15 +72,34 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
     setDraft(null);
     setLowConfidence([]);
     setValidationErrors([]);
+    setSourceJobId(null);
   };
 
-  const startUpload = async (file: File) => {
-    const rejectReason =
-      !file.type.startsWith("image/")
-        ? "That file type isn't supported - use a JPG or PNG photo."
-        : file.size > 20 * 1024 * 1024
-        ? "That file is over the 20 MB limit."
-        : "";
+  const resumeJob = (job: JobOut) => {
+    setOcrText(job.raw_text);
+    const extracted = job.extracted ?? { ...emptyPrescription(), low_confidence: [] };
+    const { low_confidence, ...rest } = extracted;
+    const p = rest as Prescription;
+    if (!p.medications || p.medications.length === 0) {
+      p.medications = [emptyMedication()];
+    }
+    setDraft(p);
+    setLowConfidence(low_confidence ?? []);
+    setSource("photo");
+    setSourceJobId(job.id);
+    setStage("review");
+  };
+
+  const MAX_PAGES = 6;
+
+  const startUpload = async (files: File[]) => {
+    const rejectReason = files.some((f) => !f.type.startsWith("image/"))
+      ? "That file type isn't supported - use JPG or PNG photos."
+      : files.some((f) => f.size > 20 * 1024 * 1024)
+      ? "Each file must be under the 20 MB limit."
+      : files.length > MAX_PAGES
+      ? `Upload at most ${MAX_PAGES} pages at a time.`
+      : "";
     if (rejectReason) {
       setUploadError(rejectReason);
       return;
@@ -257,7 +112,7 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
     abortRef.current = controller;
     try {
       const job = await prescriptionsApi.ocrAndWait(
-        file,
+        files,
         setOcrStatus,
         setProgress,
         controller.signal
@@ -272,6 +127,7 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
       setDraft(p);
       setLowConfidence(low_confidence ?? []);
       setSource("photo");
+      setSourceJobId(job.id);
       setStage("review");
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
@@ -287,9 +143,9 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
     abortRef.current?.abort();
   };
 
-  const onFilePicked = (file: File | null) => {
-    if (!file) return;
-    startUpload(file);
+  const onFilesPicked = (files: FileList | File[] | null) => {
+    if (!files || files.length === 0) return;
+    startUpload(Array.from(files));
   };
 
   const stopCamera = () => {
@@ -352,7 +208,7 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
           type: "image/jpeg",
         });
         stopCamera();
-        startUpload(file);
+        startUpload([file]);
       },
       "image/jpeg",
       0.92
@@ -378,15 +234,19 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
 
   const save = async (addAnother: boolean) => {
     if (!draft) return;
-    const errors = validate(draft);
+    const errors = validatePrescription(draft);
     setValidationErrors(errors);
     if (errors.length > 0) return;
 
     setBusy(true);
     try {
       const wasFirstRecord = !hasRecords;
-      const saved = await prescriptionsApi.create(draft);
+      const saved = await prescriptionsApi.create({
+        ...draft,
+        source_job_id: sourceJobId,
+      });
       onSaved();
+      loadPendingJobs();
       if (addAnother) {
         reset();
         return;
@@ -415,6 +275,27 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
 
       <div className="content--page">
         <div className="page upload-page">
+          {stage === "idle" && pendingJobs.length > 0 && (
+            <div className="pending-jobs">
+              <div className="pending-jobs-title">
+                {pendingJobs.length === 1
+                  ? "You have an unfinished upload"
+                  : `You have ${pendingJobs.length} unfinished uploads`}
+              </div>
+              {pendingJobs.map((job) => (
+                <button
+                  key={job.id}
+                  type="button"
+                  className="pending-job-row"
+                  onClick={() => resumeJob(job)}
+                >
+                  <span>{jobLabel(job)}</span>
+                  <span className="pending-job-resume">Resume →</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {stage !== "review" && (
             <div
               className={`dropzone ${dragOver ? "drag-over" : ""}`}
@@ -426,7 +307,7 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
               onDrop={(e) => {
                 e.preventDefault();
                 setDragOver(false);
-                onFilePicked(e.dataTransfer.files?.[0] ?? null);
+                onFilesPicked(e.dataTransfer.files);
               }}
             >
               {!cameraOpen && (
@@ -437,8 +318,11 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
                       <path d="M4 13v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2" />
                     </svg>
                   </div>
-                  <div className="dropzone-title">Drop a photo here</div>
-                  <div className="dropzone-sub">JPG or PNG · up to 20 MB</div>
+                  <div className="dropzone-title">Drop photo(s) here</div>
+                  <div className="dropzone-sub">
+                    JPG or PNG · up to 20 MB each · multiple pages of one visit? select them
+                    all at once
+                  </div>
                 </>
               )}
 
@@ -492,8 +376,9 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 style={{ display: "none" }}
-                onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
+                onChange={(e) => onFilesPicked(e.target.files)}
               />
 
               {(uploadError || cameraError) && (
@@ -529,10 +414,11 @@ export default function UploadView({ visible, hasRecords, onSaved }: UploadViewP
                   <span className="review-card-hint">Check each field before saving</span>
                 </div>
 
-                <ReviewForm
+                <PrescriptionForm
                   value={draft}
                   onChange={setDraft}
                   lowConfidence={lowConfidence}
+                  childList={childList}
                 />
 
                 <div className="safety-note">

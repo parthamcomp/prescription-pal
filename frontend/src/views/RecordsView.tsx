@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
-import { Med, Prescription } from "../api";
+import { Child, Med, Prescription, prescriptionsApi } from "../api";
 import Logo from "../components/Logo";
+import PrescriptionForm, { validatePrescription } from "../components/PrescriptionForm";
 import {
   MED_COLOR_HEX,
   colorKeyForRecord,
@@ -114,68 +115,180 @@ function RecordCard({ p, meds, onDelete, highlighted }: RecordCardProps) {
 
 function RecordDetail({
   record,
+  childList,
   onDelete,
+  onUpdated,
 }: {
   record: Prescription;
+  childList: Child[];
   onDelete: (id: string) => void;
+  onUpdated: () => void;
 }) {
   const navigate = useNavigate();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Prescription>(record);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPhotos([]);
+    if (record.id) {
+      prescriptionsApi
+        .photos(record.id)
+        .then((urls) => {
+          if (!cancelled) setPhotos(urls);
+        })
+        .catch(() => {
+          // no original photo(s) for this record (manually typed, or
+          // uploaded before this feature existed) - just show nothing
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [record.id]);
+
+  const startEdit = () => {
+    setDraft(record);
+    setErrors([]);
+    setSaveError("");
+    setEditing(true);
+  };
+
+  const save = async () => {
+    const validationErrors = validatePrescription(draft);
+    setErrors(validationErrors);
+    if (validationErrors.length > 0) return;
+    setBusy(true);
+    setSaveError("");
+    try {
+      await prescriptionsApi.update(record.id!, draft);
+      onUpdated();
+      setEditing(false);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to save changes");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const childName = childList.find((c) => c.id === record.child_id)?.name;
+
   return (
     <div className="content--page">
       <div className="page">
-        <button className="ghost-btn" onClick={() => navigate("/records")}>
-          ← Back to records
+        <button
+          className="ghost-btn"
+          onClick={() => (editing ? setEditing(false) : navigate("/records"))}
+        >
+          ← {editing ? "Cancel edit" : "Back to records"}
         </button>
         <div className="record-detail-card">
-          <h2>{record.doctor_name || "Prescription"}</h2>
-          {record.date_of_visit && (
-            <p>
-              <strong>Date:</strong> {record.date_of_visit}
-            </p>
+          {editing ? (
+            <>
+              <h2>Edit record</h2>
+              <PrescriptionForm
+                value={draft}
+                onChange={setDraft}
+                lowConfidence={[]}
+                childList={childList}
+              />
+              {errors.length > 0 && (
+                <div className="review-errors">
+                  {errors.map((e, i) => (
+                    <p key={i}>{e}</p>
+                  ))}
+                </div>
+              )}
+              {saveError && <p className="field-hint error-text">{saveError}</p>}
+              <div className="actions form-actions">
+                <button onClick={save} disabled={busy}>
+                  Save changes
+                </button>
+                <button className="ghost" onClick={() => setEditing(false)} disabled={busy}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>{record.doctor_name || "Prescription"}</h2>
+              {photos.length > 0 && (
+                <div className="record-photo-strip">
+                  {photos.map((url, i) => (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={photos.length > 1 ? `Page ${i + 1} - open full size` : "Open full size"}
+                    >
+                      <img src={url} alt={`Prescription page ${i + 1}`} />
+                    </a>
+                  ))}
+                </div>
+              )}
+              {record.date_of_visit && (
+                <p>
+                  <strong>Date:</strong> {record.date_of_visit}
+                </p>
+              )}
+              {childName && (
+                <p>
+                  <strong>Child:</strong> {childName}
+                </p>
+              )}
+              {record.complaint && (
+                <p>
+                  <strong>Complaint:</strong> {record.complaint}
+                </p>
+              )}
+              {record.diagnosis && (
+                <p>
+                  <strong>Diagnosis:</strong> {record.diagnosis}
+                </p>
+              )}
+              {record.medications.length > 0 && (
+                <ul className="med-list">
+                  {record.medications.map((m, i) => (
+                    <li key={i}>
+                      <strong>{m.name}</strong>
+                      {[m.form, m.dosage, m.frequency, m.duration]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(record.child_age || record.child_weight) && (
+                <div className="card-meta">
+                  {record.child_age && <span>Age: {record.child_age}</span>}
+                  {record.child_weight && <span>Weight: {record.child_weight}</span>}
+                </div>
+              )}
+              {record.additional_notes && <p className="notes">{record.additional_notes}</p>}
+              <div className="actions form-actions">
+                <button
+                  onClick={() =>
+                    navigate("/ask", {
+                      state: { seedQuestion: `Tell me about ${recordTitle(record)}` },
+                    })
+                  }
+                >
+                  Ask about this
+                </button>
+                <button className="ghost" onClick={startEdit}>
+                  Edit
+                </button>
+                <button className="ghost danger" onClick={() => onDelete(record.id!)}>
+                  Delete
+                </button>
+              </div>
+            </>
           )}
-          {record.complaint && (
-            <p>
-              <strong>Complaint:</strong> {record.complaint}
-            </p>
-          )}
-          {record.diagnosis && (
-            <p>
-              <strong>Diagnosis:</strong> {record.diagnosis}
-            </p>
-          )}
-          {record.medications.length > 0 && (
-            <ul className="med-list">
-              {record.medications.map((m, i) => (
-                <li key={i}>
-                  <strong>{m.name}</strong>
-                  {[m.form, m.dosage, m.frequency, m.duration]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </li>
-              ))}
-            </ul>
-          )}
-          {(record.child_age || record.child_weight) && (
-            <div className="card-meta">
-              {record.child_age && <span>Age: {record.child_age}</span>}
-              {record.child_weight && <span>Weight: {record.child_weight}</span>}
-            </div>
-          )}
-          {record.additional_notes && <p className="notes">{record.additional_notes}</p>}
-          <div className="actions form-actions">
-            <button
-              onClick={() =>
-                navigate("/ask", {
-                  state: { seedQuestion: `Tell me about ${recordTitle(record)}` },
-                })
-              }
-            >
-              Ask about this
-            </button>
-            <button className="ghost danger" onClick={() => onDelete(record.id!)}>
-              Delete
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -186,23 +299,28 @@ interface RecordsViewProps {
   visible: boolean;
   prescriptions: Prescription[];
   meds: Med[];
+  childList: Child[];
   loading: boolean;
   error: string;
   onDelete: (id: string) => void;
+  onUpdated: () => void;
 }
 
 export default function RecordsView({
   visible,
   prescriptions,
   meds,
+  childList,
   loading,
   error,
   onDelete,
+  onUpdated,
 }: RecordsViewProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [childFilter, setChildFilter] = useState<string>("all");
   const [sort, setSort] = useState<Sort>(
     () => (localStorage.getItem(SORT_KEY) as Sort) || "newest"
   );
@@ -244,6 +362,9 @@ export default function RecordsView({
     // "prescriptions" filter is a no-op today (every record is a
     // prescription; "notes" always has 0 and is hidden) but kept so the
     // pill row matches the design once note-type records exist.
+    if (childFilter !== "all") {
+      list = list.filter((p) => (p.child_id ?? "") === childFilter);
+    }
 
     const q = search.trim().toLowerCase();
     if (q) {
@@ -262,7 +383,7 @@ export default function RecordsView({
       const db = b.date_of_visit || "";
       return sort === "newest" ? db.localeCompare(da) : da.localeCompare(db);
     });
-  }, [prescriptions, filter, search, sort]);
+  }, [prescriptions, filter, childFilter, search, sort]);
 
   const medCount = meds.length;
 
@@ -280,7 +401,12 @@ export default function RecordsView({
           <div className="panel-head">
             <h2>Records</h2>
           </div>
-          <RecordDetail record={detailRecord} onDelete={onDelete} />
+          <RecordDetail
+            record={detailRecord}
+            childList={childList}
+            onDelete={onDelete}
+            onUpdated={onUpdated}
+          />
         </>
       ) : (
         <>
@@ -322,6 +448,21 @@ export default function RecordsView({
                 </button>
               ))}
             <div className="panel-head-spacer" />
+            {childList.length > 0 && (
+              <select
+                className="sort-btn"
+                value={childFilter}
+                onChange={(e) => setChildFilter(e.target.value)}
+                aria-label="Filter by child"
+              >
+                <option value="all">All children</option>
+                {childList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               className="sort-btn"

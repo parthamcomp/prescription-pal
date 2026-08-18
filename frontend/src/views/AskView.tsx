@@ -258,11 +258,15 @@ export default function AskView({ visible, prescriptions }: AskViewProps) {
                               data-record-id={s.id}
                               onClick={() => navigate(`/records/${s.id}`)}
                             >
-                              <span
-                                className={`source-tile ${s.kind === "note" ? "note" : ""}`}
-                              >
-                                {s.kind === "note" ? "✎" : "Rx"}
-                              </span>
+                              {s.thumbnail_url ? (
+                                <img className="source-tile-photo" src={s.thumbnail_url} alt="" />
+                              ) : (
+                                <span
+                                  className={`source-tile ${s.kind === "note" ? "note" : ""}`}
+                                >
+                                  {s.kind === "note" ? "✎" : "Rx"}
+                                </span>
+                              )}
                               <span className="source-text">
                                 <span className="title">{s.title}</span>
                                 {sourceMeta(s) && (

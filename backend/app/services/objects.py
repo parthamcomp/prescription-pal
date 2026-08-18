@@ -41,6 +41,17 @@ def get_object(key: str) -> bytes:
     return resp["Body"].read()
 
 
+def presigned_url(key: str, expires_in: int = 3600) -> str:
+    """A time-limited URL for viewing a private object directly (the
+    original prescription photo) without routing the bytes through our own
+    API. `expires_in` is in seconds."""
+    return _client().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.storage_bucket, "Key": key},
+        ExpiresIn=expires_in,
+    )
+
+
 def delete_prefix(prefix: str) -> None:
     """Delete every object under `prefix` (e.g. a user's `uploads/{id}/`
     folder). Used on account deletion so uploaded prescription photos don't

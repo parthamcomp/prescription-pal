@@ -5,8 +5,9 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import { Med, Prescription, medicationsApi, prescriptionsApi } from "./api";
+import { Child, Med, Prescription, childrenApi, medicationsApi, prescriptionsApi } from "./api";
 import { useAuth } from "./auth/AuthContext";
+import ChildrenModal from "./components/ChildrenModal";
 import Logo from "./components/Logo";
 import ProfileModal from "./components/ProfileModal";
 import { MED_COLOR_HEX, pluralize } from "./lib/format";
@@ -67,6 +68,8 @@ export default function App() {
   const [meds, setMeds] = useState<Med[]>([]);
   const [selectedMedId, setSelectedMedId] = useState<string | null>(null);
   const [showAllMeds, setShowAllMeds] = useState(false);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [childrenModalOpen, setChildrenModalOpen] = useState(false);
 
   const profileOpen = searchParams.get("profile") === "1";
   const openProfile = () => {
@@ -78,6 +81,10 @@ export default function App() {
     const next = new URLSearchParams(searchParams);
     next.delete("profile");
     setSearchParams(next);
+  };
+  const openChildrenModal = () => {
+    closeProfile();
+    setChildrenModalOpen(true);
   };
 
   const loadPrescriptions = async () => {
@@ -99,9 +106,18 @@ export default function App() {
     }
   };
 
+  const loadChildren = async () => {
+    try {
+      setChildren(await childrenApi.list());
+    } catch {
+      // child picker/filter degrade to "no children yet" - not fatal
+    }
+  };
+
   useEffect(() => {
     loadPrescriptions();
     loadMedications();
+    loadChildren();
   }, []);
 
   useEffect(() => {
@@ -240,13 +256,16 @@ export default function App() {
           visible={view === "records"}
           prescriptions={prescriptions}
           meds={meds}
+          childList={children}
           loading={recordsLoading}
           error={recordsError}
           onDelete={deletePrescription}
+          onUpdated={loadPrescriptions}
         />
         <UploadView
           visible={view === "upload"}
           hasRecords={prescriptions.length > 0}
+          childList={children}
           onSaved={() => {
             loadPrescriptions();
             loadMedications();
@@ -273,6 +292,15 @@ export default function App() {
           onClose={closeProfile}
           recordCount={prescriptions.length}
           medicationCount={meds.length}
+          onManageChildren={openChildrenModal}
+        />
+      )}
+
+      {childrenModalOpen && (
+        <ChildrenModal
+          onClose={() => setChildrenModalOpen(false)}
+          childList={children}
+          onChanged={loadChildren}
         />
       )}
     </div>

@@ -19,8 +19,14 @@ async def process_ocr_job(ctx, job_id: str) -> dict:
 
         await jobs_repo.update_status(db, job, "processing")
         try:
-            image_bytes = await asyncio.to_thread(get_object, job.image_key)
-            raw_text = await asyncio.to_thread(extract_text_from_image, image_bytes)
+            page_texts = []
+            for i, image_key in enumerate(job.image_keys or []):
+                image_bytes = await asyncio.to_thread(get_object, image_key)
+                text = await asyncio.to_thread(extract_text_from_image, image_bytes)
+                if text:
+                    prefix = f"--- page {i + 1} ---\n" if len(job.image_keys) > 1 else ""
+                    page_texts.append(f"{prefix}{text}")
+            raw_text = "\n\n".join(page_texts)
             if not raw_text:
                 await jobs_repo.update_status(
                     db,

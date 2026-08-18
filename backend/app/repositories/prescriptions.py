@@ -57,8 +57,14 @@ async def create_for_user(
     data: PrescriptionCreate,
     document: str,
     embedding: list[float] | None,
+    image_keys: list[str] | None = None,
 ) -> Prescription:
-    model = Prescription(user_id=user_id, document=document, embedding=embedding)
+    model = Prescription(
+        user_id=user_id,
+        document=document,
+        embedding=embedding,
+        image_keys=image_keys or [],
+    )
     _apply(model, data)
     db.add(model)
     await db.commit()

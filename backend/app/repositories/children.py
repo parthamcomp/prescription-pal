@@ -35,3 +35,31 @@ async def create_for_user(
     await db.commit()
     await db.refresh(child)
     return child
+
+
+async def update_for_user(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    child_id: uuid.UUID,
+    name: str,
+    date_of_birth: date | None,
+) -> Child | None:
+    child = await get_for_user(db, user_id, child_id)
+    if child is None:
+        return None
+    child.name = name
+    child.date_of_birth = date_of_birth
+    await db.commit()
+    await db.refresh(child)
+    return child
+
+
+async def delete_for_user(
+    db: AsyncSession, user_id: uuid.UUID, child_id: uuid.UUID
+) -> bool:
+    child = await get_for_user(db, user_id, child_id)
+    if child is None:
+        return False
+    await db.delete(child)
+    await db.commit()
+    return True

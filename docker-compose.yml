@@ -80,6 +80,10 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}
       - OPENAI_EMBED_MODEL=${OPENAI_EMBED_MODEL:-text-embedding-3-small}
+      # The worker never validates a token itself, but it imports the same
+      # Settings object as the API - jwt_secret has no default (see
+      # config.py), so it must be set here too or the process won't start.
+      - JWT_SECRET=${JWT_SECRET:-dev-insecure-change-me}
     depends_on:
       db:
         condition: service_healthy

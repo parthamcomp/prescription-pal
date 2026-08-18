@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import App from "./App";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import Join from "./pages/Join";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import "./index.css";
@@ -38,6 +39,14 @@ createRoot(document.getElementById("root")!).render(
               <PublicOnly>
                 <Register />
               </PublicOnly>
+            }
+          />
+          <Route
+            path="/join/:token"
+            element={
+              <Protected>
+                <Join />
+              </Protected>
             }
           />
           <Route

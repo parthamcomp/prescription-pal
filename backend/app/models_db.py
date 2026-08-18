@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    Boolean,
     Computed,
     Date,
     DateTime,
@@ -109,6 +110,11 @@ class Prescription(Base):
     )
     additional_notes: Mapped[str] = mapped_column(Text, default="")
     source_text: Mapped[str] = mapped_column(Text, default="")
+    # Object-storage keys for the original photo(s), in page order. Carried
+    # forward from the ProcessingJob that produced this record (see
+    # PrescriptionCreate.source_job_id) - empty for manually-typed records
+    # or records created before this column existed.
+    image_keys: Mapped[list[str]] = mapped_column(JSONB, default=list)
 
     # RAG: the flattened document + its embedding (nullable until indexed)
     document: Mapped[str] = mapped_column(Text, default="")
@@ -150,13 +156,70 @@ class ProcessingJob(Base):
         nullable=False,
     )
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
-    image_key: Mapped[str] = mapped_column(String(500), default="")
+    # One or more object-storage keys, in page order - a multi-page upload
+    # is one job whose OCR text gets concatenated across pages before a
+    # single extraction call (see worker.py::process_ocr_job).
+    image_keys: Mapped[list[str]] = mapped_column(JSONB, default=list)
     raw_text: Mapped[str] = mapped_column(Text, default="")
     extracted: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     error: Mapped[str] = mapped_column(Text, default="")
+    # Whether this job's extraction was ever turned into a saved
+    # Prescription - drives the "pending uploads" list (a job can finish
+    # OCR successfully and still never get reviewed/saved if the user
+    # navigates away).
+    saved: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AccountLink(Base):
+    """Grants member_user_id full symmetric access to owner_user_id's data
+    (children, prescriptions, chat, uploads). member_user_id is unique - a
+    user can be a member of at most one shared account at a time."""
+
+    __tablename__ = "account_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    member_user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class AccountInvite(Base):
+    __tablename__ = "account_invites"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )

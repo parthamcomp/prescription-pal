@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { accountApi } from "../api";
+import { HouseholdStatus, accountApi, householdApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 interface ProfileModalProps {
   onClose: () => void;
   recordCount: number;
   medicationCount: number;
+  onManageChildren: () => void;
 }
 
 export default function ProfileModal({
   onClose,
   recordCount,
   medicationCount,
+  onManageChildren,
 }: ProfileModalProps) {
   const { user, logout, refreshUser } = useAuth();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -31,6 +33,76 @@ export default function ProfileModal({
   const [deleteText, setDeleteText] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  const [household, setHousehold] = useState<HouseholdStatus | null>(null);
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [sharingError, setSharingError] = useState("");
+  const [sharingBusy, setSharingBusy] = useState(false);
+
+  const loadHousehold = async () => {
+    try {
+      setHousehold(await householdApi.status());
+    } catch {
+      // sharing section just stays hidden if this fails
+    }
+  };
+  useEffect(() => {
+    loadHousehold();
+  }, []);
+
+  const createInvite = async () => {
+    setInviteBusy(true);
+    setSharingError("");
+    try {
+      const { token } = await householdApi.invite();
+      setInviteLink(`${window.location.origin}/join/${token}`);
+      setInviteCopied(false);
+    } catch (e) {
+      setSharingError(e instanceof Error ? e.message : "Couldn't create invite");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const copyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    } catch {
+      // clipboard permission denied - the link is still shown to copy by hand
+    }
+  };
+
+  const removeMember = async (memberId: string) => {
+    if (!confirm("Remove this person's access to your account?")) return;
+    setSharingBusy(true);
+    setSharingError("");
+    try {
+      await householdApi.removeMember(memberId);
+      await loadHousehold();
+    } catch (e) {
+      setSharingError(e instanceof Error ? e.message : "Couldn't remove member");
+    } finally {
+      setSharingBusy(false);
+    }
+  };
+
+  const leaveHousehold = async () => {
+    if (!confirm("Stop sharing this account? You'll only see your own records.")) return;
+    setSharingBusy(true);
+    setSharingError("");
+    try {
+      await householdApi.leave();
+      await loadHousehold();
+    } catch (e) {
+      setSharingError(e instanceof Error ? e.message : "Couldn't leave");
+    } finally {
+      setSharingBusy(false);
+    }
+  };
 
   // Focus trap + Esc/click-outside + return focus to the trigger on close.
   useEffect(() => {
@@ -234,6 +306,73 @@ export default function ProfileModal({
             </div>
             {passwordError && <p className="field-hint error-text">{passwordError}</p>}
           </div>
+
+          <div className="profile-section">
+            <div className="profile-section-heading">FAMILY</div>
+            <div className="profile-row">
+              <span className="profile-label">Children</span>
+              <button className="profile-row-action" onClick={onManageChildren}>
+                Manage
+              </button>
+            </div>
+          </div>
+
+          {household && (
+            <div className="profile-section">
+              <div className="profile-section-heading">FAMILY &amp; SHARING</div>
+
+              {household.owner_email ? (
+                <div className="profile-row">
+                  <span className="profile-label">Sharing {household.owner_email}&apos;s account</span>
+                  <button
+                    className="profile-row-action"
+                    onClick={leaveHousehold}
+                    disabled={sharingBusy}
+                  >
+                    Leave
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {household.members.map((m) => (
+                    <div className="profile-row" key={m.id}>
+                      <span className="profile-label">{m.display_name || m.email}</span>
+                      <button
+                        className="profile-row-action"
+                        onClick={() => removeMember(m.id)}
+                        disabled={sharingBusy}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+
+                  {inviteLink ? (
+                    <div className="profile-row">
+                      <span className="profile-inline-edit" style={{ justifyContent: "flex-start", flex: 1 }}>
+                        <input value={inviteLink} readOnly onFocus={(e) => e.target.select()} />
+                        <button className="profile-row-action" onClick={copyInvite}>
+                          {inviteCopied ? "Copied!" : "Copy"}
+                        </button>
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="profile-row">
+                      <span className="profile-label">Invite a co-parent</span>
+                      <button
+                        className="profile-row-action"
+                        onClick={createInvite}
+                        disabled={inviteBusy}
+                      >
+                        Get link
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+              {sharingError && <p className="field-hint error-text">{sharingError}</p>}
+            </div>
+          )}
 
           <div className="profile-data-note">
             <span className="profile-data-icon">✓</span>

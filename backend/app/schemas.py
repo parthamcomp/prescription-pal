@@ -41,7 +41,13 @@ class PrescriptionBase(BaseModel):
 
 
 class PrescriptionCreate(PrescriptionBase):
-    pass
+    # If this draft came from a reviewed OCR job, linking it back lets the
+    # backend carry the job's photo(s) onto the saved record and mark the
+    # job as saved (see routers/prescriptions.py::create_prescription) -
+    # never accept raw image_keys directly from the client, since that would
+    # let a request name arbitrary storage keys instead of only ones the
+    # job itself uploaded under this account.
+    source_job_id: Optional[UUID] = None
 
 
 class PrescriptionOut(PrescriptionBase):
@@ -109,8 +115,37 @@ class DeleteAccountRequest(BaseModel):
     confirm: str = Field(max_length=50)
 
 
+# --------------------------- Household / shared access ---------------------------
+class InviteOut(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+class JoinRequest(BaseModel):
+    token: str = Field(max_length=64)
+
+
+class MemberOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    email: EmailStr
+    display_name: str = ""
+
+
+class HouseholdStatus(BaseModel):
+    # Present (non-null) only when the caller is a member of someone else's
+    # account - lets the UI show "sharing X's account" vs "you're the owner".
+    owner_email: Optional[str] = None
+    members: list[MemberOut] = Field(default_factory=list)
+
+
 # --------------------------- Children ---------------------------
 class ChildCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    date_of_birth: Optional[date] = None
+
+
+class ChildUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     date_of_birth: Optional[date] = None
 
@@ -200,3 +235,5 @@ class JobOut(BaseModel):
     raw_text: str = ""
     extracted: Optional[dict] = None
     error: str = ""
+    saved: bool = False
+    created_at: Optional[datetime] = None
