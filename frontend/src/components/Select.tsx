@@ -104,7 +104,10 @@ export default function Select({
         onClick={() => setOpen((o) => !o)}
         onKeyDown={onTriggerKeyDown}
       >
-        <span className={selected ? "custom-select-value" : "custom-select-placeholder"}>
+        <span
+          className={selected ? "custom-select-value" : "custom-select-placeholder"}
+          title={selected?.label}
+        >
           {selected ? selected.label : placeholder}
         </span>
         <svg
@@ -132,6 +135,7 @@ export default function Select({
               className={`custom-select-option ${i === highlighted ? "highlighted" : ""} ${
                 o.value === value ? "selected" : ""
               }`}
+              title={o.label}
               onMouseEnter={() => setHighlighted(i)}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => commit(i)}

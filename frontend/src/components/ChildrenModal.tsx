@@ -165,7 +165,9 @@ export default function ChildrenModal({
                 </span>
               ) : (
                 <>
-                  <span className="profile-label">{c.name}</span>
+                  <span className="profile-label" title={c.name}>
+                    {c.name}
+                  </span>
                   <span className="profile-inline-edit">
                     {c.date_of_birth && <span>{c.date_of_birth}</span>}
                     <button

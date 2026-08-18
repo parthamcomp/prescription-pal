@@ -335,7 +335,9 @@ export default function ProfileModal({
 
               {household.owner_email ? (
                 <div className="profile-row">
-                  <span className="profile-label">Sharing {household.owner_email}&apos;s account</span>
+                  <span className="profile-label" title={`Sharing ${household.owner_email}'s account`}>
+                    Sharing {household.owner_email}&apos;s account
+                  </span>
                   <button
                     className="profile-row-action"
                     onClick={leaveHousehold}
@@ -348,7 +350,9 @@ export default function ProfileModal({
                 <>
                   {household.members.map((m) => (
                     <div className="profile-row" key={m.id}>
-                      <span className="profile-label">{m.display_name || m.email}</span>
+                      <span className="profile-label" title={m.display_name || m.email}>
+                        {m.display_name || m.email}
+                      </span>
                       <button
                         className="profile-row-action"
                         onClick={() => removeMember(m.id)}

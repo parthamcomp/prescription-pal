@@ -1889,6 +1889,14 @@ a:hover {
   min-width: 160px;
 }
 
+.custom-select-value,
+.custom-select-placeholder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .custom-select-placeholder {
   color: var(--ink-3);
   font-weight: 500;
@@ -2550,6 +2558,17 @@ button.ghost.add-row:hover {
 .profile-label {
   color: var(--ink-3);
   font-weight: 600;
+  /* An unbroken long value (a name/email with no wrap points) can't shrink
+     below its own content width in a flex row by default, so it pushes -
+     or on narrower viewports, pushes entirely off-screen - the actions
+     next to it instead of yielding space to them. min-width: 0 lets this
+     flex item shrink past that; the rest truncates it with an ellipsis
+     instead of overflowing raggedly. Pair with a title attribute in JSX so
+     the full value is still available on hover. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn-link {
