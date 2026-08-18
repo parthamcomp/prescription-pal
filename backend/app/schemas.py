@@ -215,7 +215,15 @@ class ChatResponse(BaseModel):
     # answer genuinely cites the child's records, not just that retrieval
     # happened to find something by keyword/embedding similarity. Drives
     # whether the frontend shows a "not based on your records" disclaimer.
-    grounded: bool = True
+    # Defaults to False (not True): rag.py's early-return/degraded paths
+    # (no records, budget rejection, LLM unavailable, malformed model JSON)
+    # never explicitly set this field, so whatever the default is becomes
+    # their answer - and every one of those is a case where the response is
+    # definitionally *not* grounded in an actual record. Only the one path
+    # that computes a real value (rag.py::answer()'s final return) passes
+    # grounded= explicitly; every other path relies on this default being
+    # the safe one.
+    grounded: bool = False
 
 
 # --------------------------- Medications (derived) ---------------------------
