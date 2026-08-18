@@ -1919,6 +1919,14 @@ a:hover {
   padding: 6px;
   list-style: none;
   margin: 0;
+  /* .custom-select renders inside <label className="stacked-field">, which
+     sets text-transform: uppercase/letter-spacing for its own small field-
+     label text. The trigger button resets that for the closed box, but the
+     popup list is a separate element tree (only mounted while open) that
+     never picked up the same reset - options inherited uppercase from that
+     ancestor instead of the plain child names passed in. */
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .custom-select-option {
