@@ -1334,6 +1334,24 @@ a:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Without this, a flex item defaults to min-width:auto and refuses to
+     shrink below its content's intrinsic width - the ellipsis rules above
+     never actually engage, so a long medication list stretches the title
+     row (and with it the card, and the grid track/viewport) instead of
+     truncating. */
+  flex: 1;
+  min-width: 0;
+}
+
+.record-card-title-more {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .record-card-meta {

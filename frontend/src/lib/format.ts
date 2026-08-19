@@ -154,6 +154,27 @@ export function recordTitle(p: Prescription): string {
   return "Prescription";
 }
 
+export interface RecordCardTitle {
+  text: string;
+  moreCount: number;
+}
+
+// The card's title row, unlike recordTitle() (used for search matching and
+// the "Ask about this" seed question, where every medication name should
+// still count), is space-constrained - listing every medication name for a
+// 7-med record stretched the card and forced a horizontal scrollbar. Cap
+// what's shown to 2 names and surface the rest as a "+N more" badge instead.
+const MAX_CARD_TITLE_MEDS = 2;
+
+export function recordCardTitle(p: Prescription): RecordCardTitle {
+  const meds = p.medications.filter((m) => m.name.trim());
+  if (meds.length > 1) {
+    const shown = meds.slice(0, MAX_CARD_TITLE_MEDS).map((m) => m.name.trim());
+    return { text: shown.join(", "), moreCount: Math.max(0, meds.length - MAX_CARD_TITLE_MEDS) };
+  }
+  return { text: recordTitle(p), moreCount: 0 };
+}
+
 export function recordMeta(p: Prescription): string {
   return [p.doctor_name, formatSourceDate(p.date_of_visit)].filter(Boolean).join(" · ");
 }

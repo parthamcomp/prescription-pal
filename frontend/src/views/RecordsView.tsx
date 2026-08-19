@@ -8,6 +8,7 @@ import {
   MED_COLOR_HEX,
   colorKeyForRecord,
   pluralize,
+  recordCardTitle,
   recordFactChips,
   recordMeta,
   recordStatus,
@@ -44,6 +45,7 @@ function RecordCard({ p, meds, onDelete, highlighted }: RecordCardProps) {
   const navigate = useNavigate();
   const chips = recordFactChips(p);
   const colorKey = colorKeyForRecord(p, meds);
+  const { text: titleText, moreCount } = recordCardTitle(p);
 
   return (
     <article
@@ -63,7 +65,10 @@ function RecordCard({ p, meds, onDelete, highlighted }: RecordCardProps) {
               className="med-chip"
               style={{ background: MED_COLOR_HEX[colorKey] }}
             />
-            <span className="record-card-title">{recordTitle(p)}</span>
+            <span className="record-card-title">{titleText}</span>
+            {moreCount > 0 && (
+              <span className="record-card-title-more">+{moreCount} more</span>
+            )}
           </div>
           {recordMeta(p) && <div className="record-card-meta">{recordMeta(p)}</div>}
           {chips.length > 0 && (
