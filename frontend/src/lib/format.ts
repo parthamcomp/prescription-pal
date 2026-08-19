@@ -120,19 +120,36 @@ export function recordStatus(p: Prescription): RecordStatus {
   return { label: "Active", bg: "var(--mint-tint)", fg: "var(--mint-text)" };
 }
 
-// Max 3 chips, dose -> frequency -> course, from the same fields the Ask
-// fact strip uses - never re-parsed from prose.
+// A single medication gets its full dose/frequency/course (max 3 chips, the
+// same fields the Ask fact strip uses, never re-parsed from prose). Once a
+// record has more than one, that level of detail per med won't fit a card -
+// one chip per medication (name + shortened course) instead, so a multi-med
+// record's card actually reflects everything it contains rather than just
+// whichever medication happened to be entered first.
+const MAX_MULTI_MED_CHIPS = 4;
+
 export function recordFactChips(p: Prescription): string[] {
-  const med = primaryMedication(p);
-  if (!med) return [];
-  return [med.dosage, med.frequency, med.duration && shortenDuration(med.duration)]
-    .filter((v): v is string => Boolean(v && v.trim()))
-    .slice(0, 3);
+  const meds = p.medications.filter((m) => m.name.trim());
+  if (meds.length === 0) return [];
+  if (meds.length === 1) {
+    const med = meds[0];
+    return [med.dosage, med.frequency, med.duration && shortenDuration(med.duration)]
+      .filter((v): v is string => Boolean(v && v.trim()))
+      .slice(0, 3);
+  }
+  const shown = meds.slice(0, MAX_MULTI_MED_CHIPS).map((m) => {
+    const duration = m.duration && shortenDuration(m.duration);
+    return duration ? `${m.name.trim()} · ${duration}` : m.name.trim();
+  });
+  const hidden = meds.length - MAX_MULTI_MED_CHIPS;
+  if (hidden > 0) shown.push(`+${hidden} more`);
+  return shown;
 }
 
 export function recordTitle(p: Prescription): string {
-  const med = primaryMedication(p);
-  if (med) return `${med.name} ${med.dosage}`.trim();
+  const meds = p.medications.filter((m) => m.name.trim());
+  if (meds.length === 1) return `${meds[0].name} ${meds[0].dosage}`.trim();
+  if (meds.length > 1) return meds.map((m) => m.name.trim()).join(", ");
   if (p.date_of_visit) return `Prescription · ${formatSourceDate(p.date_of_visit)}`;
   return "Prescription";
 }

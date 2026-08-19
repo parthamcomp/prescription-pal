@@ -42,7 +42,6 @@ interface RecordCardProps {
 
 function RecordCard({ p, meds, onDelete, highlighted }: RecordCardProps) {
   const navigate = useNavigate();
-  const status = recordStatus(p);
   const chips = recordFactChips(p);
   const colorKey = colorKeyForRecord(p, meds);
 
@@ -77,12 +76,11 @@ function RecordCard({ p, meds, onDelete, highlighted }: RecordCardProps) {
             </div>
           )}
         </div>
-        <span
-          className="record-status-badge"
-          style={{ background: status.bg, color: status.fg }}
-        >
-          {status.label}
-        </span>
+        {/* Active/Finished badge disabled for now, not removed: recordStatus()
+            only looks at the record's first medication, so a multi-med record
+            where an earlier course finished but a later one is still running
+            showed a misleading "Finished" badge. Re-enable once there's a
+            per-record status that actually accounts for every medication. */}
       </div>
       <div className="record-card-footer">
         <span className="record-card-filename">

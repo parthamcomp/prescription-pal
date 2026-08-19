@@ -1297,6 +1297,11 @@ a:hover {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  /* Reserves room for .record-card-delete, which is absolutely positioned
+     at this same top-right corner and only fades in on hover - without
+     this, a status badge sitting at the end of this flex row renders
+     directly underneath it instead of the two ever having distinct space. */
+  padding-right: 76px;
 }
 
 .record-thumb {
