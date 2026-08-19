@@ -142,3 +142,129 @@ class TestDeleteChildCascadesPrescriptions:
         remaining = await db_session.execute(select(Prescription))
         remaining_ids = {row.id for row in remaining.scalars().all()}
         assert remaining_ids == {kept.id}
+
+
+# --------------------------------------------------------------------------
+# CRUD coverage: create/list/update/delete, filling in what the
+# authorization-table and concurrency reference tests above (both scoped to
+# GET) don't exercise.
+# --------------------------------------------------------------------------
+class TestCreateChild:
+    async def test_creates_and_returns_the_child(self, client, db_session):
+        owner = await make_user(db_session)
+        resp = await client.post(
+            "/api/children",
+            json={"name": "Riley", "date_of_birth": "2022-03-01"},
+            cookies=auth_cookies(owner.id),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "Riley"
+        assert body["date_of_birth"] == "2022-03-01"
+
+    async def test_duplicate_name_on_the_same_account_is_rejected(self, client, db_session):
+        owner = await make_user(db_session)
+        await make_child(db_session, owner.id, name="Riley")
+
+        resp = await client.post(
+            "/api/children",
+            json={"name": "Riley", "date_of_birth": None},
+            cookies=auth_cookies(owner.id),
+        )
+        assert resp.status_code == 400
+
+    async def test_the_same_name_is_fine_on_a_different_account(self, client, db_session):
+        owner_a = await make_user(db_session)
+        owner_b = await make_user(db_session)
+        await make_child(db_session, owner_a.id, name="Riley")
+
+        resp = await client.post(
+            "/api/children",
+            json={"name": "Riley", "date_of_birth": None},
+            cookies=auth_cookies(owner_b.id),
+        )
+        assert resp.status_code == 200
+
+
+class TestListChildren:
+    async def test_only_lists_the_callers_own_children(self, client, db_session):
+        owner = await make_user(db_session)
+        stranger = await make_user(db_session)
+        await make_child(db_session, owner.id, name="Mine")
+        await make_child(db_session, stranger.id, name="NotMine")
+
+        resp = await client.get("/api/children", cookies=auth_cookies(owner.id))
+
+        assert resp.status_code == 200
+        names = [c["name"] for c in resp.json()]
+        assert names == ["Mine"]
+
+
+class TestUpdateChild:
+    async def test_updates_name_and_date_of_birth(self, client, db_session):
+        owner = await make_user(db_session)
+        child = await make_child(db_session, owner.id, name="Old Name")
+
+        resp = await client.patch(
+            f"/api/children/{child.id}",
+            json={"name": "New Name", "date_of_birth": "2023-01-01"},
+            cookies=auth_cookies(owner.id),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "New Name"
+        assert resp.json()["date_of_birth"] == "2023-01-01"
+
+    async def test_renaming_to_a_name_already_used_on_the_account_is_rejected(
+        self, client, db_session
+    ):
+        owner = await make_user(db_session)
+        await make_child(db_session, owner.id, name="Taken")
+        other = await make_child(db_session, owner.id, name="Renaming Me")
+
+        resp = await client.patch(
+            f"/api/children/{other.id}",
+            json={"name": "Taken", "date_of_birth": None},
+            cookies=auth_cookies(owner.id),
+        )
+        assert resp.status_code == 400
+
+    async def test_updating_someone_elses_child_404s(self, client, db_session):
+        owner = await make_user(db_session)
+        stranger = await make_user(db_session)
+        child = await make_child(db_session, owner.id)
+
+        resp = await client.patch(
+            f"/api/children/{child.id}",
+            json={"name": "Hijacked", "date_of_birth": None},
+            cookies=auth_cookies(stranger.id),
+        )
+        assert resp.status_code == 404
+
+    async def test_updating_a_nonexistent_child_404s(self, client, db_session):
+        owner = await make_user(db_session)
+        resp = await client.patch(
+            "/api/children/00000000-0000-0000-0000-000000000000",
+            json={"name": "Whoever", "date_of_birth": None},
+            cookies=auth_cookies(owner.id),
+        )
+        assert resp.status_code == 404
+
+
+class TestDeleteChildAuthorization:
+    async def test_deleting_someone_elses_child_404s(self, client, db_session):
+        owner = await make_user(db_session)
+        stranger = await make_user(db_session)
+        child = await make_child(db_session, owner.id)
+
+        resp = await client.delete(
+            f"/api/children/{child.id}", cookies=auth_cookies(stranger.id)
+        )
+        assert resp.status_code == 404
+
+    async def test_deleting_a_nonexistent_child_404s(self, client, db_session):
+        owner = await make_user(db_session)
+        resp = await client.delete(
+            "/api/children/00000000-0000-0000-0000-000000000000",
+            cookies=auth_cookies(owner.id),
+        )
+        assert resp.status_code == 404
