@@ -19,9 +19,11 @@ from app.routers import (
     children,
     household,
     jobs,
+    measurements,
     medications,
     ocr,
     prescriptions,
+    vaccinations,
 )
 from app.services.budget import budget
 from app.services.objects import ensure_bucket
@@ -85,6 +87,8 @@ app.include_router(jobs.router)
 app.include_router(medications.router)
 app.include_router(account.router)
 app.include_router(household.router)
+app.include_router(measurements.router)
+app.include_router(vaccinations.router)
 
 
 @app.get("/health")

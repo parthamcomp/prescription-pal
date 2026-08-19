@@ -7,7 +7,9 @@ from sqlalchemy import (
     Computed,
     Date,
     DateTime,
+    Float,
     ForeignKey,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -71,6 +73,11 @@ class Child(Base):
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Nullable, binary only - WHO's growth-percentile LMS tables are published
+    # strictly male/female, and the frontend degrades gracefully (prompts to
+    # set it) rather than blocking on it. Enforced as Literal["male","female"]
+    # at the Pydantic layer only, matching this codebase's existing style.
+    sex: Mapped[str | None] = mapped_column(String(10), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -84,6 +91,16 @@ class Child(Base):
     # the time the DELETE hits. This flag tells the ORM to step aside and
     # let Postgres enforce the FK's ON DELETE CASCADE itself.
     prescriptions: Mapped[list["Prescription"]] = relationship(
+        back_populates="child", passive_deletes=True
+    )
+    # Same passive_deletes=True requirement as prescriptions above - Child
+    # deletion goes through repositories/children.py::delete_for_user's ORM
+    # db.delete(child), so without this SQLAlchemy would try to null the FK
+    # on any loaded rows instead of letting Postgres's ON DELETE CASCADE fire.
+    measurements: Mapped[list["Measurement"]] = relationship(
+        back_populates="child", passive_deletes=True
+    )
+    vaccination_doses: Mapped[list["VaccinationDose"]] = relationship(
         back_populates="child", passive_deletes=True
     )
 
@@ -153,6 +170,89 @@ class Prescription(Base):
 
     user: Mapped["User"] = relationship(back_populates="prescriptions")
     child: Mapped["Child | None"] = relationship(back_populates="prescriptions")
+
+
+class Measurement(Base):
+    __tablename__ = "measurements"
+    __table_args__ = (
+        # The chart's core query is "this child's measurements in date order" -
+        # a composite index on exactly that pair avoids a sort on read.
+        Index("ix_measurements_child_measured_on", "child_id", "measured_on"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    child_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("children.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    measured_on: Mapped[date] = mapped_column(Date, nullable=False)
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # "manual" (typed in the Percentiles tab) or "ocr" (read off a saved
+    # prescription's vitals section) - drives the Recent measurements table's
+    # source styling, nothing behavioral.
+    source: Mapped[str] = mapped_column(String(10), default="manual")
+    # Object-storage keys of the originating photo(s), same shape and
+    # provenance as Prescription.image_keys - empty for manual entries.
+    image_keys: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    child: Mapped["Child"] = relationship(back_populates="measurements")
+
+
+class VaccinationDose(Base):
+    __tablename__ = "vaccination_doses"
+    __table_args__ = (
+        # One dose row per schedule slug per child - the schedule template
+        # (backend/app/data/vaccination_schedule_uip.json) already numbers
+        # doses as distinct slugs (e.g. "opv-1", "opv-2"), so this constraint
+        # is what makes a POST idempotent/upsert-safe rather than needing an
+        # extra existence check in the router.
+        UniqueConstraint("child_id", "scheduled_slug", name="uq_dose_child_slug"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    child_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("children.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    # References a slug in the bundled UIP schedule JSON, not a DB row - the
+    # schedule template can be revised (a JSON diff) without a migration.
+    scheduled_slug: Mapped[str] = mapped_column(String(60), nullable=False)
+    date_administered: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    child: Mapped["Child"] = relationship(back_populates="vaccination_doses")
 
 
 class ProcessingJob(Base):

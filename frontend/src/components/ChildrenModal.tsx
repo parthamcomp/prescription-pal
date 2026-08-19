@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { Child, childrenApi } from "../api";
+import { Child, ChildSex, childrenApi } from "../api";
+import DatePicker from "./DatePicker";
+import Select from "./Select";
 import { useConfirm } from "./ConfirmDialog";
+import { todayIso } from "../lib/format";
+
+const TODAY_ISO = todayIso();
+
+const SEX_OPTIONS = [
+  { value: "", label: "Unspecified" },
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+];
+
+const toSex = (v: string): ChildSex | null => (v === "male" || v === "female" ? v : null);
 
 interface ChildrenModalProps {
   onClose: () => void;
@@ -19,11 +32,13 @@ export default function ChildrenModal({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDob, setEditDob] = useState("");
+  const [editSex, setEditSex] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const [newName, setNewName] = useState("");
   const [newDob, setNewDob] = useState("");
+  const [newSex, setNewSex] = useState("");
   const [addBusy, setAddBusy] = useState(false);
 
   // Same focus trap + Esc/click-outside pattern as ProfileModal.
@@ -63,6 +78,7 @@ export default function ChildrenModal({
     setEditingId(c.id);
     setEditName(c.name);
     setEditDob(c.date_of_birth ?? "");
+    setEditSex(c.sex ?? "");
   };
 
   const saveEdit = async () => {
@@ -70,7 +86,7 @@ export default function ChildrenModal({
     setBusyId(editingId);
     setError("");
     try {
-      await childrenApi.update(editingId, editName.trim(), editDob || null);
+      await childrenApi.update(editingId, editName.trim(), editDob || null, toSex(editSex));
       setEditingId(null);
       onChanged();
     } catch (e) {
@@ -100,14 +116,17 @@ export default function ChildrenModal({
     }
   };
 
+  const newValid = newName.trim() && newDob && newSex;
+
   const add = async () => {
-    if (!newName.trim()) return;
+    if (!newValid) return;
     setAddBusy(true);
     setError("");
     try {
-      await childrenApi.create(newName.trim(), newDob || null);
+      await childrenApi.create(newName.trim(), newDob || null, toSex(newSex));
       setNewName("");
       setNewDob("");
+      setNewSex("");
       onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't add child");
@@ -119,7 +138,7 @@ export default function ChildrenModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal"
+        className="modal children-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="children-modal-title"
@@ -150,10 +169,18 @@ export default function ChildrenModal({
                     onChange={(e) => setEditName(e.target.value)}
                     autoFocus
                   />
-                  <input
-                    type="date"
+                  <DatePicker
                     value={editDob}
-                    onChange={(e) => setEditDob(e.target.value)}
+                    onChange={setEditDob}
+                    max={TODAY_ISO}
+                    ariaLabel="Date of birth"
+                  />
+                  <Select
+                    className="field-select"
+                    value={editSex}
+                    onChange={setEditSex}
+                    options={SEX_OPTIONS}
+                    ariaLabel="Sex"
                   />
                   <button
                     className="profile-row-action"
@@ -191,26 +218,38 @@ export default function ChildrenModal({
 
           {error && <p className="field-hint error-text">{error}</p>}
 
-          <div className="profile-row">
-            <span className="profile-inline-edit" style={{ justifyContent: "flex-start", flex: 1 }}>
+          <div className="add-child-section">
+            <div className="add-child-heading">Add a child</div>
+            <div className="add-child-fields">
               <input
+                className="add-child-name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Child's name"
               />
-              <input
-                type="date"
+              <DatePicker
+                className="add-child-dob"
                 value={newDob}
-                onChange={(e) => setNewDob(e.target.value)}
+                onChange={setNewDob}
+                max={TODAY_ISO}
+                ariaLabel="Date of birth"
+              />
+              <Select
+                className="field-select add-child-sex"
+                value={newSex}
+                onChange={setNewSex}
+                options={SEX_OPTIONS}
+                ariaLabel="Sex"
               />
               <button
-                className="profile-row-action"
+                className="profile-row-action add-child-submit"
                 onClick={add}
-                disabled={addBusy || !newName.trim()}
+                disabled={addBusy || !newValid}
               >
                 Add
               </button>
-            </span>
+            </div>
+            <p className="field-hint">Name, date of birth, and sex are all required.</p>
           </div>
         </div>
       </div>

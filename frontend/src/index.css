@@ -1162,6 +1162,13 @@ a:hover {
   padding: 24px 22px 32px;
 }
 
+/* The growth charts and vaccination checklist benefit from real width
+   (wider bands, more room per row) rather than being capped and centered
+   like a reading-width page of prose. */
+.child-profile-page {
+  max-width: none;
+}
+
 .toast {
   flex-shrink: 0;
   background: var(--amber-tint);
@@ -1216,6 +1223,15 @@ a:hover {
   gap: 7px;
   padding: 14px 22px 0;
   flex-wrap: wrap;
+  /* Was transparent, relying on the ancestor .panel's white background to
+     show through. On a viewport shorter than .shell's 720px floor, the page
+     needs an outer scroll on top of .content--page's own internal scroll -
+     under that combination, scrolled chart/card content could visually
+     bleed through this transparent row instead of being cleanly covered by
+     it. An explicit opaque background makes it occlude reliably regardless
+     of which scroll container is actually moving. */
+  background: var(--surface);
+  flex-shrink: 0;
 }
 
 .filter-pill {
@@ -2192,6 +2208,28 @@ textarea:focus {
   gap: 14px;
 }
 
+.unit-field {
+  display: flex;
+  gap: 6px;
+}
+
+.unit-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+.unit-field select {
+  width: 64px;
+  flex-shrink: 0;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 14px;
+  font-size: 14px;
+  font-family: var(--font-body);
+  background: var(--surface-tint);
+  color: var(--ink);
+}
+
 .meds {
   border-radius: 15px;
   padding: 14px;
@@ -2564,19 +2602,40 @@ button.ghost.add-row:hover {
   font-weight: 800;
 }
 
+/* .consent-row is itself a <label> with an <input> inside .auth-card.v2, so
+   the generic .auth-card.v2 label / .auth-card.v2 input rules above (meant
+   for the Email/Password fields' stacked layout and 44px-tall text inputs)
+   also match it, and being more specific than .consent-row's own rules,
+   were winning - stacking the checkbox above the text and inflating it to
+   text-input size. Re-assert the intended layout/size at matching
+   specificity so it wins instead. */
+.auth-card.v2 .consent-row {
+  flex-direction: row;
+}
+
+.auth-card.v2 .consent-row input[type="checkbox"] {
+  height: 18px;
+  padding: 0;
+}
+
 .profile-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 11px 0;
-  border-bottom: 1px solid var(--hairline);
   font-size: 13.5px;
   font-weight: 500;
 }
 
-.profile-row:last-of-type {
-  border-bottom: none;
+/* Border strictly *between* consecutive rows, not on every row with the
+   last one un-set - :last-of-type is type-based (div), not class-based, so
+   it silently stopped matching once a differently-classed <div> (like
+   .add-child-section) followed the row list in the DOM, leaving every row
+   including the true last one with its own border-bottom. This pattern is
+   correct regardless of what comes after. */
+.profile-row + .profile-row {
+  border-top: 1px solid var(--hairline);
 }
 
 .profile-label {
@@ -2634,6 +2693,13 @@ button.ghost.add-row:hover {
   background: var(--surface);
   border-radius: 20px;
   padding: 22px 24px;
+}
+
+/* Wider than the base modal - the add-child row packs name + dob + sex +
+   button side by side, which the default 480px squeezed badly enough that
+   the sex select clipped out of view and forced a vertical scrollbar. */
+.modal.children-modal {
+  max-width: 640px;
 }
 
 .modal-head {
@@ -2808,6 +2874,291 @@ button.ghost.add-row:hover {
   background: var(--surface-alt-hover);
 }
 
+/* The Select component's trigger is unstyled by default (see Select.tsx) -
+   it only picks up real chrome from a scoping class like .stacked-field
+   elsewhere in the app. Without one here it fell back to the site's generic
+   <button> default (solid violet pill), looking like a CTA rather than a
+   select. This gives it the same plain-input look as its sibling text
+   inputs instead. */
+/* .field-select is passed as Select's className prop, which lands directly
+   on the trigger button itself (not a wrapping ancestor) - these need to be
+   compound selectors (no space), not descendant selectors, to actually
+   match it. */
+.custom-select-trigger.field-select {
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-tint);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.profile-inline-edit .custom-select-trigger.field-select {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.add-child-section {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 2px solid var(--hairline);
+}
+
+.add-child-heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin-bottom: 10px;
+}
+
+.add-child-fields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-child-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.add-child-dob {
+  width: 150px;
+  flex-shrink: 0;
+}
+
+.add-child-fields .custom-select-trigger.field-select {
+  height: 42px;
+  padding: 0 13px;
+  font-size: 14px;
+  width: 130px;
+}
+
+.add-child-submit {
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* DatePicker - native <input type="date"> replacement. Chromium's date  */
+/* popup can't be styled at all (not even the background-color/color     */
+/* trick that works on <select> options), and on this app's mobile        */
+/* viewport it wasn't opening on tap at all - this is a full custom       */
+/* calendar, same trigger+popup shape as Select.tsx/custom-select.        */
+/* ------------------------------------------------------------------ */
+.date-picker {
+  position: relative;
+}
+
+/* .date-picker-trigger is a <div> wrapping a real text input (typing
+   commits a date directly) plus a separate icon button (opens the popup) -
+   clicking the text only ever types, clicking the icon only ever opens the
+   picker. The div carries the visual "field" chrome; the input itself is
+   borderless/transparent so it reads as one continuous box. */
+.date-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 42px;
+  padding: 0 6px 0 13px;
+  border-radius: 14px;
+  background: var(--surface-tint);
+}
+
+.date-picker-trigger:hover {
+  background: var(--surface-alt-hover);
+}
+
+.date-picker.open .date-picker-trigger,
+.date-picker-trigger:focus-within {
+  box-shadow: var(--focus-ring);
+}
+
+.profile-inline-edit .date-picker-trigger {
+  height: 32px;
+  padding: 0 4px 0 10px;
+  width: auto;
+  min-width: 130px;
+}
+
+.add-child-fields .date-picker-trigger {
+  width: 150px;
+}
+
+.date-picker-text-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: text;
+}
+
+.date-picker-text-input:focus {
+  outline: none;
+}
+
+.date-picker-text-input.placeholder,
+.date-picker-text-input::placeholder {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.profile-inline-edit .date-picker-text-input {
+  font-size: 13px;
+}
+
+.date-picker-icon-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.date-picker-icon-btn:hover {
+  background: var(--surface-alt-hover);
+  color: var(--ink-2);
+}
+
+.date-picker-popup {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 280px;
+  background: var(--surface);
+  border: 1.5px solid var(--hairline);
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(27, 26, 46, 0.16);
+  padding: 14px;
+}
+
+.date-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.date-picker-month-label {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.date-picker-nav {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--surface-alt);
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.date-picker-nav:hover {
+  background: var(--surface-alt-hover);
+}
+
+.date-picker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+
+.date-picker-weekdays span {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+}
+
+.date-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.date-picker-cell {
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  padding: 0;
+}
+
+.date-picker-cell:hover:not(:disabled) {
+  background: var(--surface-alt);
+}
+
+.date-picker-cell.outside {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.date-picker-cell.today {
+  box-shadow: inset 0 0 0 1.5px var(--hairline);
+}
+
+.date-picker-cell.selected {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.date-picker-cell.selected:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.date-picker-cell:disabled {
+  color: #d8d6ea;
+  cursor: not-allowed;
+}
+
+.date-picker-clear {
+  width: 100%;
+  height: 32px;
+  margin-top: 10px;
+  border: 1.5px solid var(--hairline);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.date-picker-clear:hover {
+  background: var(--surface-alt);
+}
+
 .profile-data-note {
   display: flex;
   align-items: flex-start;
@@ -2913,6 +3264,742 @@ button.ghost.add-row:hover {
   background: #302e4d;
 }
 
+/* ------------------------------------------------------------------ */
+/* Child Profile (rail sidebar list)                                  */
+/* ------------------------------------------------------------------ */
+.rail-children-heading {
+  padding: 22px 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+}
+
+.rail-children-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rail-child-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 13px;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.14s ease;
+}
+
+.rail-child-row:hover {
+  background: var(--surface-alt);
+}
+
+.rail-child-row.active {
+  background: var(--surface-alt);
+}
+
+.rail-child-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.rail-child-avatar.dashed {
+  background: transparent;
+  border: 1.5px dashed var(--hairline);
+  color: var(--ink-3);
+}
+
+.rail-child-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rail-child-age {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.rail-child-row.add .rail-child-name {
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Child Profile (main page: child selector, tab capsule)             */
+/* ------------------------------------------------------------------ */
+.child-picker {
+  position: relative;
+}
+
+.child-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 15px;
+  background: var(--surface-tint);
+  cursor: pointer;
+  font-family: var(--font-body);
+  max-width: 260px;
+}
+
+.child-picker-trigger:hover {
+  background: var(--surface-alt-hover);
+}
+
+.child-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.child-avatar.small {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  font-size: 11.5px;
+}
+
+.child-avatar.dashed {
+  background: transparent;
+  border: 1.5px dashed var(--hairline);
+  color: var(--ink-3);
+}
+
+.child-picker-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.child-picker-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.child-picker-meta {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.child-picker-chevron {
+  flex-shrink: 0;
+  color: var(--ink-3);
+  margin-left: 2px;
+}
+
+.child-picker-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1.5px solid var(--hairline);
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(27, 26, 46, 0.16);
+  padding: 8px;
+  list-style: none;
+  margin: 0;
+}
+
+.child-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.child-picker-option:hover {
+  background: var(--surface-alt);
+}
+
+.child-picker-option.selected .child-picker-option-name {
+  color: var(--primary);
+}
+
+.child-picker-option-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.child-picker-option-age {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.child-picker-option.add .child-picker-option-name {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+.tab-capsule {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-alt);
+}
+
+.tab-capsule-btn {
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab-capsule-btn:hover {
+  color: var(--ink);
+  background: transparent;
+}
+
+.tab-capsule-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.tab-capsule-btn.active:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.add-measurement-btn {
+  height: 38px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.add-measurement-btn:hover {
+  background: var(--primary-hover);
+}
+
+/* ------------------------------------------------------------------ */
+/* Growth percentiles                                                 */
+/* ------------------------------------------------------------------ */
+.growth-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.growth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 20px;
+  background: var(--surface-tint);
+  border: 1.5px solid var(--hairline);
+  min-width: 0;
+}
+
+.growth-card-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.growth-card-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.growth-card-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.growth-card-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.growth-chart {
+  display: block;
+}
+
+.growth-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.growth-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #9a98b5;
+}
+
+.growth-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.growth-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.growth-value {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.growth-percentile-pill {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.growth-percentile-pill.muted {
+  background: var(--surface-alt);
+  color: var(--ink-3);
+}
+
+.growth-meta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.growth-delta {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.growth-delta.up {
+  color: var(--mint-text);
+}
+
+.growth-delta.down {
+  color: var(--amber-text);
+}
+
+.growth-caution {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber-text);
+  background: var(--amber-tint);
+  padding: 8px 11px;
+  border-radius: 12px;
+}
+
+.growth-empty {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.growth-empty.centered {
+  text-align: center;
+  padding: 24px;
+}
+
+.growth-table-card {
+  padding: 16px 18px 18px;
+  border-radius: 20px;
+  background: var(--surface-tint);
+  border: 1.5px solid var(--hairline);
+}
+
+.growth-table-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+
+.growth-table-row {
+  display: grid;
+  grid-template-columns: 1fr 0.8fr 1fr 1fr 1fr 1fr;
+  gap: 6px;
+  padding: 10px 4px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.growth-table-row.growth-table-head {
+  padding: 0 4px 8px;
+  border-top: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--ink-4);
+}
+
+.growth-table-row.latest {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.growth-table-row .muted {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+.growth-table-row .violet {
+  color: #4536c9;
+}
+
+.growth-table-row .mint {
+  color: var(--mint-text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Vaccination tracker                                                */
+/* ------------------------------------------------------------------ */
+.vaccine-progress-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--mint-tint);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mint-text);
+  white-space: nowrap;
+}
+
+.vaccine-progress-track {
+  width: 56px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: #cdeee2;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.vaccine-progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--mint);
+  border-radius: var(--radius-pill);
+}
+
+.vaccine-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 15px;
+  border-radius: 14px;
+  background: var(--surface-tint);
+  margin-bottom: 10px;
+}
+
+.vaccine-info-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
+  background: var(--violet-tint);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vaccine-info-banner p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.vaccine-milestone {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.vaccine-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 14px;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-align: left;
+  background: var(--surface-tint);
+}
+
+.vaccine-group-head.given {
+  background: #f3fbf8;
+}
+
+.vaccine-milestone-pill {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.vaccine-group-head.given .vaccine-milestone-pill {
+  color: var(--mint-text);
+}
+
+.vaccine-milestone-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vaccine-overdue-tag {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--coral-tint);
+  color: var(--error);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.vaccine-count-pill {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--surface-alt);
+  color: var(--ink-4);
+}
+
+.vaccine-count-pill.given {
+  background: var(--mint);
+  color: #ffffff;
+}
+
+.vaccine-count-pill.due {
+  background: var(--amber-tint);
+  color: var(--amber-text);
+}
+
+.vaccine-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: var(--surface-tint);
+}
+
+.vaccine-row.ready {
+  background: var(--surface);
+  border: 1.5px solid var(--hairline);
+}
+
+.vaccine-row.given {
+  background: #f3fbf8;
+}
+
+/* Groups the checkbox + name/subtitle as one unit, always inline together
+   regardless of .vaccine-row's own direction - this is what lets the date
+   field drop to its own full-width line on mobile (.vaccine-row switches to
+   column) without the checkbox and name splitting apart too. */
+.vaccine-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.vaccine-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt);
+  border: 1.5px dashed #d8d6ea;
+  cursor: not-allowed;
+}
+
+.vaccine-row.ready .vaccine-checkbox {
+  background: #ffffff;
+  border: 1.75px solid var(--primary);
+  cursor: pointer;
+}
+
+.vaccine-row.given .vaccine-checkbox {
+  background: var(--mint);
+  border: 1.5px solid var(--mint);
+  cursor: pointer;
+}
+
+.vaccine-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.vaccine-row-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #9a98b5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vaccine-row.ready .vaccine-row-name {
+  color: var(--ink);
+}
+
+.vaccine-row.given .vaccine-row-name {
+  color: var(--mint-text);
+  font-weight: 800;
+}
+
+.vaccine-row-subtitle {
+  font-size: 11px;
+  font-weight: 500;
+  color: #b0aec7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vaccine-row.ready .vaccine-row-subtitle {
+  color: var(--ink-3);
+}
+
+.vaccine-row.given .vaccine-row-subtitle {
+  color: #5c8b7c;
+}
+
+.vaccine-date-input {
+  height: 36px;
+  width: 140px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+  flex-shrink: 0;
+  border: 1.5px dashed var(--hairline);
+  background: #ffffff;
+  color: #b0aec7;
+}
+
+.vaccine-row.ready .vaccine-date-input {
+  border: 1.5px solid #d6d2f4;
+  background: var(--surface-tint);
+  color: var(--ink);
+}
+
+.vaccine-row.given .vaccine-date-input {
+  border: 1.5px solid #cdeee2;
+  color: var(--mint-text);
+}
+
 @media (max-width: 760px) {
   .modal-overlay:has(.profile-modal) {
     align-items: flex-end;
@@ -2927,6 +4014,18 @@ button.ghost.add-row:hover {
   }
   .profile-data-actions {
     flex-direction: column;
+  }
+  .add-child-fields {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .add-child-name,
+  .add-child-dob,
+  .add-child-submit {
+    width: 100%;
+  }
+  .add-child-fields .custom-select-trigger.field-select {
+    width: 100%;
   }
 }
 
@@ -2992,7 +4091,8 @@ a:focus-visible,
   .signout-btn,
   .nav-label,
   .nav-count,
-  .rail-meds {
+  .rail-meds,
+  .rail-children {
     display: none;
   }
   .rail-brand,
@@ -3024,6 +4124,9 @@ a:focus-visible,
   }
   .review-grid {
     grid-template-columns: 1fr 1fr;
+  }
+  .growth-cards-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -3095,6 +4198,27 @@ a:focus-visible,
   }
   .med-row {
     grid-template-columns: 1fr 1fr;
+  }
+  .growth-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .growth-table-row {
+    grid-template-columns: 1fr 0.7fr 1fr 1fr;
+    font-size: 11.5px;
+  }
+  .growth-table-row > span:nth-child(5),
+  .growth-table-row > span:nth-child(6) {
+    display: none;
+  }
+  .vaccine-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .vaccine-date-input {
+    width: 100%;
+  }
+  .child-picker-name {
+    max-width: 40vw;
   }
 }
 

@@ -1,6 +1,6 @@
 import re
 from datetime import date, datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -147,14 +147,19 @@ class HouseholdStatus(BaseModel):
 
 
 # --------------------------- Children ---------------------------
+ChildSex = Literal["male", "female"]
+
+
 class ChildCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     date_of_birth: Optional[date] = None
+    sex: Optional[ChildSex] = None
 
 
 class ChildUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     date_of_birth: Optional[date] = None
+    sex: Optional[ChildSex] = None
 
 
 class ChildOut(BaseModel):
@@ -162,6 +167,95 @@ class ChildOut(BaseModel):
     id: UUID
     name: str
     date_of_birth: Optional[date] = None
+    sex: Optional[str] = None
+
+
+# --------------------------- Measurements ---------------------------
+HeightUnit = Literal["cm", "in"]
+WeightUnit = Literal["kg", "lb"]
+
+
+class MeasurementCreate(BaseModel):
+    child_id: UUID
+    measured_on: date
+    # Raw value + unit, never trusting the client to have already converted -
+    # services/units.py does the one canonical conversion, shared with the
+    # OCR extraction path.
+    height_value: Optional[float] = Field(None, gt=0, le=250)
+    height_unit: HeightUnit = "cm"
+    weight_value: Optional[float] = Field(None, gt=0, le=200)
+    weight_unit: WeightUnit = "kg"
+    source: Literal["manual", "ocr"] = "manual"
+    source_job_id: Optional[UUID] = None
+
+    @field_validator("weight_value")
+    @classmethod
+    def _require_one_measurement(cls, v, info):
+        if v is None and info.data.get("height_value") is None:
+            raise ValueError("Provide at least a height or a weight")
+        return v
+
+
+class MeasurementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    child_id: UUID
+    measured_on: date
+    height_cm: Optional[float] = None
+    weight_kg: Optional[float] = None
+    source: str
+    # Computed by the router (needs the child's DOB/sex, which the row alone
+    # doesn't carry) - null whenever the child's sex isn't set yet or the
+    # age falls outside the WHO 0-5y reference range.
+    age_months: Optional[float] = None
+    height_percentile: Optional[float] = None
+    weight_percentile: Optional[float] = None
+
+
+class PercentileCurvePoint(BaseModel):
+    month: int
+    p3: float
+    p15: float
+    p50: float
+    p85: float
+    p97: float
+
+
+class PercentileCurvesOut(BaseModel):
+    height_for_age: list[PercentileCurvePoint]
+    weight_for_age: list[PercentileCurvePoint]
+
+
+# --------------------------- Vaccination ---------------------------
+class VaccinationDoseCreate(BaseModel):
+    child_id: UUID
+    scheduled_slug: str = Field(min_length=1, max_length=60)
+    date_administered: date
+
+
+class VaccineStatusOut(BaseModel):
+    slug: str
+    name: str
+    subtitle: str
+    given: bool
+    date_administered: Optional[date] = None
+
+
+class MilestoneStatusOut(BaseModel):
+    key: str
+    label: str
+    summary: str
+    status: Literal["given", "due", "not_due"]
+    overdue: bool
+    given_count: int
+    total_count: int
+    vaccines: list[VaccineStatusOut]
+
+
+class ScheduleStatusOut(BaseModel):
+    milestones: list[MilestoneStatusOut]
+    given_count: int
+    total_count: int
 
 
 # --------------------------- Chat ---------------------------

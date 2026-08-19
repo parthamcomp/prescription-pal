@@ -41,7 +41,9 @@ async def create_child(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        return await repo.create_for_user(db, owner_id, body.name, body.date_of_birth)
+        return await repo.create_for_user(
+            db, owner_id, body.name, body.date_of_birth, body.sex
+        )
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=400, detail=_DUPLICATE_NAME_ERROR)
@@ -56,7 +58,7 @@ async def update_child(
 ):
     try:
         child = await repo.update_for_user(
-            db, owner_id, child_id, body.name, body.date_of_birth
+            db, owner_id, child_id, body.name, body.date_of_birth, body.sex
         )
     except IntegrityError:
         await db.rollback()

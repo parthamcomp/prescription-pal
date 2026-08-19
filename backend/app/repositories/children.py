@@ -29,8 +29,9 @@ async def create_for_user(
     user_id: uuid.UUID,
     name: str,
     date_of_birth: date | None,
+    sex: str | None = None,
 ) -> Child:
-    child = Child(user_id=user_id, name=name, date_of_birth=date_of_birth)
+    child = Child(user_id=user_id, name=name, date_of_birth=date_of_birth, sex=sex)
     db.add(child)
     await db.commit()
     await db.refresh(child)
@@ -43,12 +44,14 @@ async def update_for_user(
     child_id: uuid.UUID,
     name: str,
     date_of_birth: date | None,
+    sex: str | None = None,
 ) -> Child | None:
     child = await get_for_user(db, user_id, child_id)
     if child is None:
         return None
     child.name = name
     child.date_of_birth = date_of_birth
+    child.sex = sex
     await db.commit()
     await db.refresh(child)
     return child

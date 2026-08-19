@@ -11,12 +11,13 @@ import ChildrenModal from "./components/ChildrenModal";
 import { useConfirm } from "./components/ConfirmDialog";
 import Logo from "./components/Logo";
 import ProfileModal from "./components/ProfileModal";
-import { MED_COLOR_HEX, pluralize } from "./lib/format";
+import { MED_COLOR_HEX, childAvatarColor, formatChildAgeShort, pluralize } from "./lib/format";
 import AskView from "./views/AskView";
+import ChildProfileView from "./views/ChildProfileView";
 import RecordsView from "./views/RecordsView";
 import UploadView from "./views/UploadView";
 
-type Tab = "ask" | "records" | "upload";
+type Tab = "ask" | "records" | "upload" | "child";
 
 function AskIcon({ color }: { color: string }) {
   return (
@@ -44,15 +45,26 @@ function UploadIcon({ color }: { color: string }) {
   );
 }
 
+function ChildIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="10" cy="6" r="3" />
+      <path d="M4 17c0-3.5 2.7-6 6-6s6 2.5 6 6" />
+    </svg>
+  );
+}
+
 const NAV_ICON_COLORS: Record<Tab, string> = {
   ask: "#5B4BE6",
   records: "#17C39A",
   upload: "#FF6B5A",
+  child: "#5B4BE6",
 };
 
 function viewForPath(pathname: string): Tab {
   if (pathname.startsWith("/records")) return "records";
   if (pathname.startsWith("/upload")) return "upload";
+  if (pathname.startsWith("/child")) return "child";
   return "ask";
 }
 
@@ -150,6 +162,7 @@ export default function App() {
     { key: "ask", label: "Ask", icon: (c) => <AskIcon color={c} /> },
     { key: "records", label: "Records", icon: (c) => <RecordsIcon color={c} /> },
     { key: "upload", label: "Upload", icon: (c) => <UploadIcon color={c} /> },
+    { key: "child", label: "Child", icon: (c) => <ChildIcon color={c} /> },
   ];
 
   const activeMeds = meds.filter((m) => m.active);
@@ -184,6 +197,38 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        {children.length > 0 && (
+          <div className="rail-children">
+            <div className="rail-children-heading">CHILDREN</div>
+            <div className="rail-children-list">
+              {children.map((c, i) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`rail-child-row ${
+                    view === "child" && location.pathname.startsWith(`/child/${c.id}`)
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() => navigate(`/child/${c.id}/percentiles`)}
+                >
+                  <span className="rail-child-avatar" style={{ background: childAvatarColor(i) }}>
+                    {(c.name.trim().charAt(0) || "?").toUpperCase()}
+                  </span>
+                  <span className="rail-child-name">{c.name}</span>
+                  {c.date_of_birth && (
+                    <span className="rail-child-age">{formatChildAgeShort(c.date_of_birth)}</span>
+                  )}
+                </button>
+              ))}
+              <button type="button" className="rail-child-row add" onClick={openChildrenModal}>
+                <span className="rail-child-avatar dashed">+</span>
+                <span className="rail-child-name">Add child</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {activeMeds.length > 0 && (
           <div className="rail-meds">
@@ -274,6 +319,11 @@ export default function App() {
             loadPrescriptions();
             loadMedications();
           }}
+        />
+        <ChildProfileView
+          visible={view === "child"}
+          childList={children}
+          onManageChildren={openChildrenModal}
         />
 
         <nav className="bottomnav">

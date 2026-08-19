@@ -24,10 +24,13 @@ export interface Prescription {
   source_job_id?: string | null;
 }
 
+export type ChildSex = "male" | "female";
+
 export interface Child {
   id: string;
   name: string;
   date_of_birth: string | null;
+  sex: ChildSex | null;
 }
 
 export interface Member {
@@ -116,7 +119,14 @@ export interface JobCreated {
   status: string;
 }
 
-export type ExtractedDraft = Prescription & { low_confidence?: string[] };
+export type ExtractedDraft = Prescription & {
+  low_confidence?: string[];
+  // Vitals read off the prescription photo, if any were present - not a
+  // Prescription field, only ever carried on the job payload so the Upload
+  // review screen can offer a separate "Growth data found" save.
+  height_cm?: number | null;
+  weight_kg?: number | null;
+};
 
 export interface JobOut {
   id: string;
@@ -401,19 +411,126 @@ export const medicationsApi = {
 };
 
 // --------------------------- children ---------------------------
+// --------------------------- measurements / growth ---------------------------
+export interface Measurement {
+  id: string;
+  child_id: string;
+  measured_on: string;
+  height_cm: number | null;
+  weight_kg: number | null;
+  source: "manual" | "ocr";
+  age_months: number | null;
+  height_percentile: number | null;
+  weight_percentile: number | null;
+}
+
+export interface MeasurementCreate {
+  child_id: string;
+  measured_on: string;
+  height_value?: number | null;
+  height_unit?: "cm" | "in";
+  weight_value?: number | null;
+  weight_unit?: "kg" | "lb";
+  source?: "manual" | "ocr";
+  source_job_id?: string | null;
+}
+
+export interface PercentileCurvePoint {
+  month: number;
+  p3: number;
+  p15: number;
+  p50: number;
+  p85: number;
+  p97: number;
+}
+
+export interface PercentileCurves {
+  height_for_age: PercentileCurvePoint[];
+  weight_for_age: PercentileCurvePoint[];
+}
+
+export const measurementsApi = {
+  list: (childId: string) =>
+    request<Measurement[]>(`/api/measurements?child_id=${childId}`),
+  create: (body: MeasurementCreate) =>
+    request<Measurement>("/api/measurements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    request<{ deleted: boolean }>(`/api/measurements/${id}`, { method: "DELETE" }),
+  percentileCurves: (sex: ChildSex) =>
+    request<PercentileCurves>(`/api/measurements/percentile-curves?sex=${sex}`),
+};
+
+// --------------------------- vaccinations ---------------------------
+export interface VaccineStatus {
+  slug: string;
+  name: string;
+  subtitle: string;
+  given: boolean;
+  date_administered: string | null;
+}
+
+export interface MilestoneStatus {
+  key: string;
+  label: string;
+  summary: string;
+  status: "given" | "due" | "not_due";
+  overdue: boolean;
+  given_count: number;
+  total_count: number;
+  vaccines: VaccineStatus[];
+}
+
+export interface ScheduleStatus {
+  milestones: MilestoneStatus[];
+  given_count: number;
+  total_count: number;
+}
+
+export const vaccinationsApi = {
+  scheduleStatus: (childId: string) =>
+    request<ScheduleStatus>(`/api/vaccinations/schedule-status?child_id=${childId}`),
+  upsertDose: (childId: string, scheduledSlug: string, dateAdministered: string) =>
+    request<{ scheduled_slug: string; date_administered: string }>(
+      "/api/vaccinations/doses",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          child_id: childId,
+          scheduled_slug: scheduledSlug,
+          date_administered: dateAdministered,
+        }),
+      }
+    ),
+  deleteDose: (childId: string, scheduledSlug: string) =>
+    request<{ deleted: boolean }>(
+      `/api/vaccinations/doses/${childId}/${scheduledSlug}`,
+      { method: "DELETE" }
+    ),
+};
+
 export const childrenApi = {
   list: () => request<Child[]>("/api/children"),
-  create: (name: string, date_of_birth: string | null) =>
+  create: (name: string, date_of_birth: string | null, sex: ChildSex | null = null) =>
     request<Child>("/api/children", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, date_of_birth }),
+      body: JSON.stringify({ name, date_of_birth, sex }),
     }),
-  update: (id: string, name: string, date_of_birth: string | null) =>
+  update: (
+    id: string,
+    name: string,
+    date_of_birth: string | null,
+    sex: ChildSex | null = null
+  ) =>
     request<Child>(`/api/children/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, date_of_birth }),
+      body: JSON.stringify({ name, date_of_birth, sex }),
     }),
   delete: (id: string) =>
     request<{ deleted: boolean }>(`/api/children/${id}`, { method: "DELETE" }),

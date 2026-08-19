@@ -3,6 +3,7 @@ import re
 from datetime import date
 
 from app.services.llm import chat_completion
+from app.services.units import height_to_cm, weight_to_kg
 
 EXTRACTION_SYSTEM = "You are a medical prescription data extractor."
 
@@ -20,8 +21,15 @@ Return ONLY valid JSON with this exact schema (no markdown, no explanation):
   "child_age": "string",
   "child_weight": "string",
   "additional_notes": "string",
+  "height": {"value": "number or null", "unit": "cm, in, or null - null if no height is present"},
+  "weight": {"value": "number or null", "unit": "kg, lb, or null - null if no weight is present"},
   "low_confidence": ["field paths you are genuinely unsure about, e.g. \\"doctor_name\\", \\"date_of_visit\\", \\"medications.0.dosage\\" - empty array if you're confident in everything you extracted"]
 }
+
+height/weight are separate from child_age/child_weight above - those are the free-text fields as
+written on the prescription (e.g. "3 yrs", "14 kg"), while height/weight are only for a clearly
+numeric vitals reading (e.g. a "Ht: 96cm  Wt: 14.2kg" line). Only fill height/weight if a number
+and a recognizable unit are both present; leave both null rather than guessing a unit.
 
 Use empty strings for unknown fields. If date is unclear, use null. Only list a field in
 low_confidence if the OCR text was genuinely ambiguous, smudged, or ran characters together for
@@ -57,6 +65,8 @@ def _fallback_extract(raw_text: str) -> dict:
         "child_age": "",
         "child_weight": "",
         "additional_notes": raw_text[:500] if raw_text else "",
+        "height": {"value": None, "unit": None},
+        "weight": {"value": None, "unit": None},
     }
 
 
@@ -88,6 +98,9 @@ async def extract_prescription_from_text(raw_text: str) -> dict:
         f for f in data.get("low_confidence", []) if isinstance(f, str)
     ]
 
+    height = data.get("height") or {}
+    weight = data.get("weight") or {}
+
     return {
         "doctor_name": data.get("doctor_name", ""),
         "date_of_visit": _normalise_date(data.get("date_of_visit")),
@@ -102,4 +115,10 @@ async def extract_prescription_from_text(raw_text: str) -> dict:
         # no such field) - only carried on the job payload so the review UI
         # can flag fields the model itself said it wasn't sure about.
         "low_confidence": low_confidence,
+        # Also job-payload-only (not a Prescription field) - normalized to
+        # canonical units here (same services/units.py helpers the manual
+        # measurement form uses) so the Upload review screen's "Growth data
+        # found" panel never has to convert units itself.
+        "height_cm": height_to_cm(height.get("value"), height.get("unit")),
+        "weight_kg": weight_to_kg(weight.get("value"), weight.get("unit")),
     }

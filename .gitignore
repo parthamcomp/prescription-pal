@@ -1,6 +1,9 @@
-# Data (prescription records and vector index)
-data/
-!data/prescriptions.example.json
+# Data (prescription records and vector index) - anchored to the repo root
+# so this doesn't also match backend/app/data/, which holds bundled
+# reference data (WHO growth tables, vaccination schedule) that ships with
+# the app and must be committed.
+/data/
+!/data/prescriptions.example.json
 
 # Python
 __pycache__/

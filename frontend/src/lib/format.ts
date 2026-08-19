@@ -12,6 +12,17 @@ export function medTagSquareColor(colorKey: ColorKey): string {
   return colorKey === "violet" ? MED_COLOR_HEX.amber : MED_COLOR_HEX[colorKey];
 }
 
+// Date.toISOString() converts to UTC, which drifts a calendar day off local
+// "today" for part of the day in any timezone not exactly UTC - always
+// build an ISO date from local getFullYear/getMonth/getDate instead of
+// new Date().toISOString().slice(0, 10).
+export function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+}
+
 export function formatSourceDate(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(`${iso}T00:00:00`);
@@ -42,6 +53,35 @@ export function formatChildAge(dateOfBirth: string, referenceDate: string): stri
   if (years > 0) parts.push(`${years} ${years === 1 ? "year" : "years"}`);
   if (months > 0) parts.push(`${months} ${months === 1 ? "month" : "months"}`);
   return parts.length > 0 ? parts.join(" ") : "0 months";
+}
+
+// Compact "4y 2m" / "9m" form for the child selector/sidebar chips - the
+// full-word formatChildAge() above is for record text, where "4 years 2
+// months" reads naturally; a nav chip needs the short form.
+export function formatChildAgeShort(dateOfBirth: string, referenceDate = todayIso()): string | null {
+  const dob = new Date(`${dateOfBirth}T00:00:00`);
+  const ref = new Date(`${referenceDate}T00:00:00`);
+  if (Number.isNaN(dob.getTime()) || Number.isNaN(ref.getTime())) return null;
+  if (ref < dob) return null;
+
+  let years = ref.getFullYear() - dob.getFullYear();
+  let months = ref.getMonth() - dob.getMonth();
+  if (ref.getDate() < dob.getDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  if (years === 0) return `${months}m`;
+  return months > 0 ? `${years}y ${months}m` : `${years}y`;
+}
+
+// One solid colour per child, deterministic by list position - nothing in
+// the data model assigns children a colour, so this just needs to be stable
+// across renders, not stored anywhere.
+export const CHILD_AVATAR_COLORS = ["#3FA9F5", "#FF6B5A", "#5B4BE6", "#17C39A", "#FFB43F"];
+
+export function childAvatarColor(index: number): string {
+  return CHILD_AVATAR_COLORS[index % CHILD_AVATAR_COLORS.length];
 }
 
 export function sourceMeta(s: Source): string {
