@@ -423,7 +423,7 @@ export default function RecordsView({
           <div className="panel-head">
             <h1>Records</h1>
             <span className="records-summary">
-              {pluralize(prescriptions.length, "stored")}
+              {prescriptions.length} stored
               {medCount > 0 ? ` · ${pluralize(medCount, "medication")}` : ""}
             </span>
             <div className="panel-head-spacer" />
