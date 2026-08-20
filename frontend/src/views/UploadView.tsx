@@ -261,9 +261,6 @@ export default function UploadView({
       {cameraOpen && (
         <div className="camera-fullscreen" role="dialog" aria-modal="true" aria-label="Camera">
           <video ref={videoRef} className="camera-fullscreen-video" playsInline muted autoPlay />
-          <div className="camera-guide-wrap" aria-hidden="true">
-            <div className="camera-guide" />
-          </div>
           <button
             type="button"
             className="camera-cancel-btn"
