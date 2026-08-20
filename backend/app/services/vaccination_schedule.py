@@ -1,4 +1,7 @@
-"""India UIP vaccination schedule - status computation.
+"""IAP (Indian Academy of Pediatrics) immunization schedule - status
+computation. Was UIP (the government schedule) until this app switched to
+IAP-ACVIP's routine-use table - see vaccination_schedule_iap.json's "source"
+field for the exact citation.
 
 Mirrors services/meds.py::derive_medications - a derived, computed-on-read
 resource. Nothing about "given/due/overdue" is stored; only the raw
@@ -12,7 +15,7 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
-_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "vaccination_schedule_uip.json"
+_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "vaccination_schedule_iap.json"
 
 OVERDUE_GRACE_DAYS = 30
 

@@ -1,0 +1,186 @@
+{
+  "schedule_version": "IAP-ACVIP-2023",
+  "source": "Indian Academy of Pediatrics (IAP) Advisory Committee on Vaccines and Immunization Practices (ACVIP): Recommended Immunization Schedule (2023) and Update on Immunization for Children Aged 0 Through 18 Years. Indian Pediatrics, published online Jan 15, 2024 (https://indianpediatrics.net/epub012024/FTA-00592.pdf) - Table I 'Vaccines for Routine Use'. Only the routine-use table is modeled here; Fig. 1's separate 'catch-up' and 'special situations' columns (e.g. Meningococcal, Cholera, Rabies, Yellow Fever, PPSV23) are out of scope, same JE-style gating decision as this app's previous UIP schedule. HPV appears twice (9-14y as the primary 2-dose course, 15-18y as the 3-dose catch-up 'if not administered earlier') exactly as Table I lists it - a family only needs to use whichever row actually applies.",
+  "milestones": [
+    {
+      "key": "at_birth",
+      "label": "AT BIRTH",
+      "summary": "BCG - OPV - Hepatitis B-1",
+      "age_days": 0,
+      "vaccines": [
+        {"slug": "bcg", "name": "BCG", "subtitle": "Bacillus Calmette-Guerin"},
+        {"slug": "opv-birth", "name": "OPV", "subtitle": "Oral Polio Vaccine - birth dose"},
+        {"slug": "hepb-1", "name": "Hepatitis B - 1", "subtitle": "Within 24 hours of birth"}
+      ]
+    },
+    {
+      "key": "6_weeks",
+      "label": "6 WEEKS",
+      "summary": "First primary series",
+      "age_days": 42,
+      "vaccines": [
+        {"slug": "dtp-1", "name": "DTwP/DTaP - 1", "subtitle": "Diphtheria, tetanus, pertussis"},
+        {"slug": "ipv-1", "name": "IPV - 1", "subtitle": "Inactivated Polio Vaccine"},
+        {"slug": "hib-1", "name": "Hib - 1", "subtitle": "Haemophilus influenzae type b"},
+        {"slug": "hepb-2", "name": "Hepatitis B - 2", "subtitle": "Second dose"},
+        {"slug": "rota-1", "name": "Rotavirus - 1", "subtitle": "Oral drops"},
+        {"slug": "pcv-1", "name": "PCV - 1", "subtitle": "Pneumococcal Conjugate Vaccine"}
+      ]
+    },
+    {
+      "key": "10_weeks",
+      "label": "10 WEEKS",
+      "summary": "Second primary series",
+      "age_days": 70,
+      "vaccines": [
+        {"slug": "dtp-2", "name": "DTwP/DTaP - 2", "subtitle": "Diphtheria, tetanus, pertussis"},
+        {"slug": "ipv-2", "name": "IPV - 2", "subtitle": "Inactivated Polio Vaccine"},
+        {"slug": "hib-2", "name": "Hib - 2", "subtitle": "Haemophilus influenzae type b"},
+        {"slug": "hepb-3", "name": "Hepatitis B - 3", "subtitle": "Third dose"},
+        {"slug": "rota-2", "name": "Rotavirus - 2", "subtitle": "Oral drops"},
+        {"slug": "pcv-2", "name": "PCV - 2", "subtitle": "Pneumococcal Conjugate Vaccine"}
+      ]
+    },
+    {
+      "key": "14_weeks",
+      "label": "14 WEEKS",
+      "summary": "Third primary series",
+      "age_days": 98,
+      "vaccines": [
+        {"slug": "dtp-3", "name": "DTwP/DTaP - 3", "subtitle": "Diphtheria, tetanus, pertussis"},
+        {"slug": "ipv-3", "name": "IPV - 3", "subtitle": "Inactivated Polio Vaccine"},
+        {"slug": "hib-3", "name": "Hib - 3", "subtitle": "Haemophilus influenzae type b"},
+        {"slug": "hepb-4", "name": "Hepatitis B - 4", "subtitle": "Optional 4th dose, safe as part of a combination vaccine"},
+        {"slug": "rota-3", "name": "Rotavirus - 3", "subtitle": "Oral drops - not needed for the GSK/RV1 brand"},
+        {"slug": "pcv-3", "name": "PCV - 3", "subtitle": "Pneumococcal Conjugate Vaccine"}
+      ]
+    },
+    {
+      "key": "6_months",
+      "label": "6 MONTHS",
+      "summary": "Influenza - dose 1",
+      "age_days": 183,
+      "vaccines": [
+        {"slug": "influenza-1", "name": "Influenza (IIV) - 1", "subtitle": "Inactivated Influenza Vaccine, 0.5 mL"}
+      ]
+    },
+    {
+      "key": "7_months",
+      "label": "7 MONTHS",
+      "summary": "Influenza - dose 2",
+      "age_days": 213,
+      "vaccines": [
+        {"slug": "influenza-2", "name": "Influenza (IIV) - 2", "subtitle": "Repeat annually, pre-monsoon, until age 5"}
+      ]
+    },
+    {
+      "key": "6_9_months",
+      "label": "6-9 MONTHS",
+      "summary": "Typhoid Conjugate Vaccine",
+      "age_days": 183,
+      "vaccines": [
+        {"slug": "typhoid-conjugate", "name": "Typhoid Conjugate Vaccine", "subtitle": "No booster dose recommended"}
+      ]
+    },
+    {
+      "key": "9_months",
+      "label": "9 MONTHS",
+      "summary": "MMR - dose 1",
+      "age_days": 274,
+      "vaccines": [
+        {"slug": "mmr-1", "name": "MMR - 1", "subtitle": "Measles, Mumps, Rubella"}
+      ]
+    },
+    {
+      "key": "12_months",
+      "label": "12 MONTHS",
+      "summary": "Hepatitis A - dose 1",
+      "age_days": 365,
+      "vaccines": [
+        {"slug": "hepa-1", "name": "Hepatitis A - 1", "subtitle": "Single dose if live attenuated vaccine"}
+      ]
+    },
+    {
+      "key": "15_months",
+      "label": "15 MONTHS",
+      "summary": "MMR-2 - Varicella-1 - PCV booster",
+      "age_days": 457,
+      "vaccines": [
+        {"slug": "mmr-2", "name": "MMR - 2", "subtitle": "Measles, Mumps, Rubella"},
+        {"slug": "varicella-1", "name": "Varicella - 1", "subtitle": "Chickenpox vaccine"},
+        {"slug": "pcv-booster", "name": "PCV - Booster", "subtitle": "Pneumococcal Conjugate Vaccine"}
+      ]
+    },
+    {
+      "key": "16_18_months",
+      "label": "16-18 MONTHS",
+      "summary": "DTwP/DTaP, Hib & IPV booster",
+      "age_days": 487,
+      "vaccines": [
+        {"slug": "dtp-b1", "name": "DTwP/DTaP - Booster 1", "subtitle": "Diphtheria, tetanus, pertussis"},
+        {"slug": "hib-b1", "name": "Hib - Booster", "subtitle": "Haemophilus influenzae type b"},
+        {"slug": "ipv-b1", "name": "IPV - Booster 1", "subtitle": "Inactivated Polio Vaccine"}
+      ]
+    },
+    {
+      "key": "18_19_months",
+      "label": "18-19 MONTHS",
+      "summary": "Hepatitis A-2 - Varicella-2",
+      "age_days": 548,
+      "vaccines": [
+        {"slug": "hepa-2", "name": "Hepatitis A - 2", "subtitle": "Only if using the inactivated vaccine"},
+        {"slug": "varicella-2", "name": "Varicella - 2", "subtitle": "Chickenpox vaccine, 2nd dose"}
+      ]
+    },
+    {
+      "key": "4_6_years",
+      "label": "4-6 YEARS",
+      "summary": "DTwP/DTaP & IPV booster - MMR-3",
+      "age_days": 1461,
+      "vaccines": [
+        {"slug": "dtp-b2", "name": "DTwP/DTaP - Booster 2", "subtitle": "Diphtheria, tetanus, pertussis"},
+        {"slug": "ipv-b2", "name": "IPV - Booster 2", "subtitle": "Inactivated Polio Vaccine"},
+        {"slug": "mmr-3", "name": "MMR - 3", "subtitle": "Measles, Mumps, Rubella"}
+      ]
+    },
+    {
+      "key": "9_14_years",
+      "label": "9-14 YEARS",
+      "summary": "HPV - 2 doses",
+      "age_days": 3287,
+      "vaccines": [
+        {"slug": "hpv-1", "name": "HPV - 1", "subtitle": "Human Papillomavirus vaccine"},
+        {"slug": "hpv-2", "name": "HPV - 2", "subtitle": "6 months after dose 1"}
+      ]
+    },
+    {
+      "key": "10_years",
+      "label": "10 YEARS",
+      "summary": "Tdap",
+      "age_days": 3652,
+      "vaccines": [
+        {"slug": "tdap-10y", "name": "Tdap", "subtitle": "Given even if a DTP booster was already given at 4-6y"}
+      ]
+    },
+    {
+      "key": "15_18_years_hpv",
+      "label": "15-18 YEARS",
+      "summary": "HPV - 3 doses (if not given earlier)",
+      "age_days": 5479,
+      "vaccines": [
+        {"slug": "hpv-catchup-1", "name": "HPV - 1 (catch-up)", "subtitle": "Only if the 9-14y course wasn't done"},
+        {"slug": "hpv-catchup-2", "name": "HPV - 2 (catch-up)", "subtitle": "2 months after dose 1"},
+        {"slug": "hpv-catchup-3", "name": "HPV - 3 (catch-up)", "subtitle": "6 months after dose 1"}
+      ]
+    },
+    {
+      "key": "16_18_years",
+      "label": "16-18 YEARS",
+      "summary": "Td",
+      "age_days": 5844,
+      "vaccines": [
+        {"slug": "td-16-18y", "name": "Td", "subtitle": "Tetanus-diphtheria"}
+      ]
+    }
+  ]
+}

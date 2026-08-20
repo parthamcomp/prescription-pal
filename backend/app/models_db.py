@@ -234,8 +234,8 @@ class VaccinationDose(Base):
     __tablename__ = "vaccination_doses"
     __table_args__ = (
         # One dose row per schedule slug per child - the schedule template
-        # (backend/app/data/vaccination_schedule_uip.json) already numbers
-        # doses as distinct slugs (e.g. "opv-1", "opv-2"), so this constraint
+        # (backend/app/data/vaccination_schedule_iap.json) already numbers
+        # doses as distinct slugs (e.g. "ipv-1", "ipv-2"), so this constraint
         # is what makes a POST idempotent/upsert-safe rather than needing an
         # extra existence check in the router.
         UniqueConstraint("child_id", "scheduled_slug", name="uq_dose_child_slug"),
@@ -256,7 +256,7 @@ class VaccinationDose(Base):
         index=True,
         nullable=False,
     )
-    # References a slug in the bundled UIP schedule JSON, not a DB row - the
+    # References a slug in the bundled IAP schedule JSON, not a DB row - the
     # schedule template can be revised (a JSON diff) without a migration.
     scheduled_slug: Mapped[str] = mapped_column(String(60), nullable=False)
     date_administered: Mapped[date] = mapped_column(Date, nullable=False)
