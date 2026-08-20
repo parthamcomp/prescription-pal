@@ -53,8 +53,13 @@ def _vaccination_block(status: dict) -> str | None:
 def _growth_block(child: Child, measurements: list[Measurement]) -> str | None:
     if not measurements:
         return None
-    lines = ["Growth measurements (height/weight):"]
-    for m in sorted(measurements, key=lambda x: x.measured_on):
+    # measurements_repo.list_for_user() already orders most-recent-first;
+    # keep that order (previously this re-sorted oldest-first and silently
+    # threw that away) and label the top entry explicitly rather than
+    # leaving the model to infer "latest" from list position - it was
+    # picking an older reading and presenting it as current.
+    lines = ["Growth measurements (height/weight), most recent first:"]
+    for i, m in enumerate(measurements):
         age_months = (
             age_in_months(child.date_of_birth, m.measured_on)
             if child.date_of_birth
@@ -76,7 +81,8 @@ def _growth_block(child: Child, measurements: list[Measurement]) -> str | None:
             )
             bits.append(f"weight {m.weight_kg} kg" + (f" ({pct}th percentile)" if pct is not None else ""))
         if bits:
-            lines.append(f"  - {m.measured_on.isoformat()}: " + ", ".join(bits))
+            tag = " [MOST RECENT]" if i == 0 else ""
+            lines.append(f"  - {m.measured_on.isoformat()}: " + ", ".join(bits) + tag)
     return "\n".join(lines) if len(lines) > 1 else None
 
 
