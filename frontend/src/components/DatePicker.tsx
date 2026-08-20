@@ -83,6 +83,12 @@ export default function DatePicker({
   const selected = parseIso(value);
   const [viewYear, setViewYear] = useState(() => (selected ?? new Date()).getFullYear());
   const [viewMonth, setViewMonth] = useState(() => (selected ?? new Date()).getMonth());
+  // The popup is a fixed-width (280px) absolutely-positioned box anchored
+  // to the trigger's left edge - fine for most triggers, but a field near
+  // the right edge of a wide page (e.g. the vaccination date column) would
+  // push it past the viewport and force a page-wide horizontal scrollbar.
+  // Flip to right-aligned whenever left-aligning would overflow.
+  const [alignRight, setAlignRight] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Only re-syncs from the committed value, so a partially-typed ("02/0")
@@ -97,6 +103,10 @@ export default function DatePicker({
     const d = selected ?? new Date();
     setViewYear(d.getFullYear());
     setViewMonth(d.getMonth());
+    const rect = rootRef.current?.getBoundingClientRect();
+    const popupWidth = 280;
+    const margin = 12;
+    setAlignRight(!!rect && rect.left + popupWidth > window.innerWidth - margin);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -222,7 +232,11 @@ export default function DatePicker({
       </div>
 
       {open && (
-        <div className="date-picker-popup" role="dialog" aria-label="Choose a date">
+        <div
+          className={`date-picker-popup ${alignRight ? "align-right" : ""}`}
+          role="dialog"
+          aria-label="Choose a date"
+        >
           <div className="date-picker-header">
             <button type="button" className="date-picker-nav" onClick={prevMonth} aria-label="Previous month">
               ‹

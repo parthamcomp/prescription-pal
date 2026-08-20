@@ -3086,6 +3086,14 @@ button.ghost.add-row:hover {
   padding: 14px;
 }
 
+/* Set via JS when left-aligning would push the popup past the viewport
+   edge (see DatePicker.tsx) - most commonly a date field sitting near the
+   right edge of a wide page, e.g. the vaccination date column. */
+.date-picker-popup.align-right {
+  left: auto;
+  right: 0;
+}
+
 .date-picker-header {
   display: flex;
   align-items: center;
