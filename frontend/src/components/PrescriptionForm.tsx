@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Child, Medication, Prescription, emptyMedication } from "../api";
 import { formatChildAge } from "../lib/format";
+import DatePicker from "./DatePicker";
 import Select from "./Select";
 
 export interface PrescriptionFormProps {
@@ -140,10 +141,10 @@ export default function PrescriptionForm({
         </label>
         <label className={flagged("date_of_visit")}>
           DATE ON PRESCRIPTION
-          <input
-            type="date"
+          <DatePicker
             value={value.date_of_visit ?? ""}
-            onChange={(e) => set("date_of_visit", e.target.value || null)}
+            onChange={(v) => set("date_of_visit", v || null)}
+            ariaLabel="Date on prescription"
           />
           {fieldFlag(lowConfidence, "date_of_visit") && (
             <span className="field-hint">Please check</span>

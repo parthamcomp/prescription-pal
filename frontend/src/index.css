@@ -1299,6 +1299,11 @@ a:hover {
   position: relative;
   transition: border-color 0.14s ease;
   text-align: left;
+  /* .record-card is a .cards-grid item - grid items default to
+     min-width:auto same as flex items, so a wide multi-med title/"+N more"
+     badge stopped the 1fr track from ever shrinking to the viewport width,
+     overflowing the whole grid horizontally on mobile. */
+  min-width: 0;
 }
 
 .record-card:hover {
@@ -1840,6 +1845,30 @@ a:hover {
 
 .review-grid label.flagged input {
   border-color: var(--amber);
+}
+
+/* DatePicker's className lands on .date-picker-trigger, not a plain
+   <input> - .review-grid input (0,1,1) would otherwise also match its
+   inner .date-picker-text-input and double up the field chrome (border +
+   border again, height + height again). These compound selectors win on
+   specificity regardless of source order, same fix pattern as the sex
+   dropdown/consent-row bugs earlier in this app. */
+.review-grid .date-picker-trigger {
+  height: 42px;
+  border: 1.5px solid var(--hairline);
+  background: var(--surface);
+}
+
+.review-grid label.flagged .date-picker-trigger {
+  border-color: var(--amber);
+}
+
+.review-grid .date-picker-text-input {
+  height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
 }
 
 .stacked-field {
@@ -3043,6 +3072,20 @@ button.ghost.add-row:hover {
   color: var(--ink-2);
 }
 
+.date-picker.disabled .date-picker-text-input {
+  cursor: default;
+}
+
+.date-picker.disabled .date-picker-icon-btn {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.date-picker.disabled .date-picker-icon-btn:hover {
+  background: transparent;
+  color: var(--ink-3);
+}
+
 .date-picker-popup {
   position: absolute;
   z-index: 20;
@@ -4000,28 +4043,48 @@ button.ghost.add-row:hover {
   color: #5c8b7c;
 }
 
-.vaccine-date-input {
+/* DatePicker's className lands on .date-picker-trigger (a wrapping div,
+   not the <input> itself) - see the same note above .review-grid
+   .date-picker-trigger. The text styling (colour/alignment/weight) that
+   used to sit on the native input now targets its inner
+   .date-picker-text-input specifically. */
+.date-picker-trigger.vaccine-date-input {
   height: 36px;
   width: 140px;
   padding: 0 10px;
   border-radius: 12px;
-  font-size: 12.5px;
-  font-weight: 700;
-  text-align: center;
   flex-shrink: 0;
   border: 1.5px dashed var(--hairline);
   background: #ffffff;
+  gap: 2px;
+}
+
+.date-picker-trigger.vaccine-date-input .date-picker-text-input {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
   color: #b0aec7;
 }
 
-.vaccine-row.ready .vaccine-date-input {
+.date-picker-trigger.vaccine-date-input .date-picker-icon-btn {
+  width: 18px;
+  height: 18px;
+}
+
+.vaccine-row.ready .date-picker-trigger.vaccine-date-input {
   border: 1.5px solid #d6d2f4;
   background: var(--surface-tint);
+}
+
+.vaccine-row.ready .date-picker-trigger.vaccine-date-input .date-picker-text-input {
   color: var(--ink);
 }
 
-.vaccine-row.given .vaccine-date-input {
+.vaccine-row.given .date-picker-trigger.vaccine-date-input {
   border: 1.5px solid #cdeee2;
+}
+
+.vaccine-row.given .date-picker-trigger.vaccine-date-input .date-picker-text-input {
   color: var(--mint-text);
 }
 
@@ -4276,7 +4339,7 @@ a:focus-visible,
     flex-direction: column;
     align-items: stretch;
   }
-  .vaccine-date-input {
+  .date-picker-trigger.vaccine-date-input {
     width: 100%;
   }
   .child-picker-name {

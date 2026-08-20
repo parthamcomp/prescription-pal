@@ -10,6 +10,7 @@ import {
   measurementsApi,
   vaccinationsApi,
 } from "../api";
+import DatePicker from "../components/DatePicker";
 import { childAvatarColor, formatChildAgeShort, formatSourceDate, todayIso } from "../lib/format";
 
 const LAST_CHILD_KEY = "pp:last-child-id";
@@ -379,7 +380,7 @@ function AddMeasurementModal({
           <div className="form" style={{ gap: 14 }}>
             <label>
               Date
-              <input type="date" value={measuredOn} onChange={(e) => setMeasuredOn(e.target.value)} />
+              <DatePicker value={measuredOn} onChange={setMeasuredOn} ariaLabel="Date" />
             </label>
             <div className="grid2">
               <label>
@@ -607,13 +608,13 @@ function VaccineRow({
           <div className="vaccine-row-subtitle">{vaccine.subtitle}</div>
         </div>
       </div>
-      <input
-        type="date"
+      <DatePicker
         className="vaccine-date-input"
         value={value}
+        onChange={onDraftChange}
         max={todayIso()}
-        onChange={(e) => onDraftChange(e.target.value)}
         disabled={vaccine.given}
+        ariaLabel={`Date administered for ${vaccine.name}`}
       />
     </div>
   );

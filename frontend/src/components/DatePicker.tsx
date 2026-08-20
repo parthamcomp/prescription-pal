@@ -9,6 +9,7 @@ export interface DatePickerProps {
   ariaLabel?: string;
   max?: string; // ISO yyyy-mm-dd
   min?: string; // ISO yyyy-mm-dd
+  disabled?: boolean;
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -75,6 +76,7 @@ export default function DatePicker({
   ariaLabel,
   max,
   min,
+  disabled,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(() => formatDisplay(value));
@@ -181,7 +183,7 @@ export default function DatePicker({
   const currentDayIso = todayIso();
 
   return (
-    <div className={`date-picker ${open ? "open" : ""}`} ref={rootRef}>
+    <div className={`date-picker ${open ? "open" : ""} ${disabled ? "disabled" : ""}`} ref={rootRef}>
       <div className={`date-picker-trigger ${className ?? ""}`}>
         <input
           type="text"
@@ -192,6 +194,7 @@ export default function DatePicker({
           onChange={(e) => handleTextChange(e.target.value)}
           placeholder={placeholder}
           aria-label={ariaLabel}
+          disabled={disabled}
         />
         <button
           type="button"
@@ -199,6 +202,7 @@ export default function DatePicker({
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-label="Open calendar"
+          disabled={disabled}
           onClick={() => setOpen((o) => !o)}
         >
           <svg
