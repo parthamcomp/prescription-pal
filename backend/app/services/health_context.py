@@ -30,7 +30,7 @@ async def _children_in_scope(
 
 
 def _vaccination_block(status: dict) -> str | None:
-    # "given" and "due" only - "not_due" milestones haven't happened yet and
+    # "given" and "due" - "not_due" milestones haven't happened yet and
     # mostly just add noise/tokens to a question about the child's current
     # state; see build_context's docstring on why this isn't retrieval-scored.
     given = [v for m in status["milestones"] for v in m["vaccines"] if v["given"]]
@@ -40,7 +40,25 @@ def _vaccination_block(status: dict) -> str | None:
         for v in m["vaccines"]
         if not v["given"] and m["status"] == "due"
     ]
-    if not given and not due:
+
+    # Exception: when nothing is currently due (every milestone the child
+    # has actually reached is fully given), "what's next" is still a fair
+    # question to ask ahead of time - surface just the single earliest
+    # not-yet-due milestone with anything outstanding, not the whole rest
+    # of the schedule out to 18y, which would be mostly irrelevant noise
+    # for a parent asking about the next shot.
+    upcoming: list[dict] = []
+    upcoming_label = None
+    if not due:
+        for m in status["milestones"]:
+            if m["status"] == "not_due":
+                pending = [v for v in m["vaccines"] if not v["given"]]
+                if pending:
+                    upcoming = pending
+                    upcoming_label = m["label"]
+                    break
+
+    if not given and not due and not upcoming:
         return None
 
     # `given`/`due` are built by walking status["milestones"] in schedule
@@ -64,6 +82,14 @@ def _vaccination_block(status: dict) -> str | None:
         lines.append("Due, not yet given (earliest/most overdue first):")
         for i, v in enumerate(due):
             tag = " [NEXT DUE]" if i == 0 else ""
+            lines.append(f"  - {v['name']} ({v['subtitle']}){tag}")
+    elif upcoming:
+        lines.append(
+            f"Nothing currently due - everything reached so far is given. The next "
+            f"milestone on the schedule is {upcoming_label} (not due yet by age):"
+        )
+        for i, v in enumerate(upcoming):
+            tag = " [NEXT UP]" if i == 0 else ""
             lines.append(f"  - {v['name']} ({v['subtitle']}){tag}")
 
     return "\n".join(lines)
