@@ -107,6 +107,7 @@ Respond with ONLY a JSON object of this exact shape, no markdown fence, no expla
 {
   "text": "your prose answer, marked with [[record]]/[[general]] as described above. Within that, also wrap key values you state (dose, frequency, duration, dates) in **double asterisks** - bold nests inside a record/general span, not the other way around.",
   "medication_name": "the single medication name this answer centres on, spelled exactly as it appears in the records, or null if the answer isn't about one specific medication (e.g. it compares several, isn't about medication at all, or is about a medication that was never actually prescribed to this child)",
+  "used_prescriptions": true only if a [[record]]-marked part of "text" actually cites a fact from the PRESCRIPTION RECORDS section specifically (a diagnosis, dose, doctor, visit date, etc); false if every [[record]] part came only from the VACCINATION & GROWTH RECORDS section, or if there is no [[record]] marker at all - this is read separately by the app to decide whether to show prescription source cards, so it must reflect PRESCRIPTION RECORDS specifically, never vaccination/growth,
   "follow_ups": [
     {"label": "2-4 word chip label", "question": "the full natural-language question that label stands for"}
   ]
@@ -128,6 +129,7 @@ class _RawFollowUp(BaseModel):
 class _RawAnswer(BaseModel):
     text: str = Field(min_length=1)
     medication_name: str | None = None
+    used_prescriptions: bool = False
     follow_ups: list[_RawFollowUp] = Field(default_factory=list)
 
 
@@ -338,7 +340,7 @@ Respond with only the JSON object described in your instructions."""
     med_tag = None
     facts = None
     safety_note = None
-    if grounded and parsed.medication_name:
+    if grounded and parsed.used_prescriptions and parsed.medication_name:
         found = _find_medication(hits, parsed.medication_name)
         if found:
             hit, med = found
@@ -354,12 +356,19 @@ Respond with only the JSON object described in your instructions."""
         if f.label.strip() and f.question.strip()
     ][:4]
 
+    # sources is built from the prescription hits (line ~282), but grounded
+    # only says "some record was cited" - it can't distinguish a prescription
+    # fact from a vaccination/growth one now that both feed the same
+    # [[record]] marker. Gate on the model's own used_prescriptions flag too,
+    # or a vaccination-only answer would show unrelated prescription hits
+    # (retrieval always returns its top-k best-available results, relevant
+    # or not - see the grounded comment above) as if they were its source.
     return ChatResponse(
         text=parsed.text,
         med=med_tag,
         facts=facts,
         safety_note=safety_note,
-        sources=sources if grounded else [],
+        sources=sources if (grounded and parsed.used_prescriptions) else [],
         follow_ups=follow_ups,
         grounded=grounded,
     )
