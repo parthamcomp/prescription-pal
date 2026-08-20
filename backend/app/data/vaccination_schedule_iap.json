@@ -1,6 +1,6 @@
 {
   "schedule_version": "IAP-ACVIP-2023",
-  "source": "Indian Academy of Pediatrics (IAP) Advisory Committee on Vaccines and Immunization Practices (ACVIP): Recommended Immunization Schedule (2023) and Update on Immunization for Children Aged 0 Through 18 Years. Indian Pediatrics, published online Jan 15, 2024 (https://indianpediatrics.net/epub012024/FTA-00592.pdf) - Table I 'Vaccines for Routine Use'. Only the routine-use table is modeled here; Fig. 1's separate 'catch-up' and 'special situations' columns (e.g. Meningococcal, Cholera, Rabies, Yellow Fever, PPSV23) are out of scope, same JE-style gating decision as this app's previous UIP schedule. HPV appears twice (9-14y as the primary 2-dose course, 15-18y as the 3-dose catch-up 'if not administered earlier') exactly as Table I lists it - a family only needs to use whichever row actually applies.",
+  "source": "Indian Academy of Pediatrics (IAP) Advisory Committee on Vaccines and Immunization Practices (ACVIP): Recommended Immunization Schedule (2023) and Update on Immunization for Children Aged 0 Through 18 Years. Indian Pediatrics, published online Jan 15, 2024 (https://indianpediatrics.net/epub012024/FTA-00592.pdf) - Table I 'Vaccines for Routine Use'. Only the routine-use table is modeled here; Fig. 1's separate 'catch-up' and 'special situations' columns (e.g. Cholera, Rabies, Yellow Fever, PPSV23) are out of scope, same JE-style gating decision as this app's previous UIP schedule. HPV appears twice (9-14y as the primary 2-dose course, 15-18y as the 3-dose catch-up 'if not administered earlier') exactly as Table I lists it - a family only needs to use whichever row actually applies. CUSTOMIZED beyond Table I per this account's own pediatrician's schedule: OPV added at 9mo; a new 10mo milestone for Meningococcal Conjugate Vaccine (MCV) dose 1; JE (Japanese Encephalitis) dose 1 added at 12mo; a new 13mo milestone for JE dose 2 and MCV dose 2; and annual Influenza milestones at 2/3/4/5 years (the 6mo/7mo Influenza-1/2 entries were already the start of that same annual series).",
   "milestones": [
     {
       "key": "at_birth",
@@ -85,19 +85,40 @@
     {
       "key": "9_months",
       "label": "9 MONTHS",
-      "summary": "MMR - dose 1",
+      "summary": "MMR - dose 1 - OPV",
       "age_days": 274,
       "vaccines": [
-        {"slug": "mmr-1", "name": "MMR - 1", "subtitle": "Measles, Mumps, Rubella"}
+        {"slug": "mmr-1", "name": "MMR - 1", "subtitle": "Measles, Mumps, Rubella"},
+        {"slug": "opv-9m", "name": "OPV", "subtitle": "Oral Polio Vaccine - 9 month dose"}
+      ]
+    },
+    {
+      "key": "10_months",
+      "label": "10 MONTHS",
+      "summary": "MCV - dose 1",
+      "age_days": 304,
+      "vaccines": [
+        {"slug": "mcv-1", "name": "MCV - 1", "subtitle": "Meningococcal Conjugate Vaccine"}
       ]
     },
     {
       "key": "12_months",
       "label": "12 MONTHS",
-      "summary": "Hepatitis A - dose 1",
+      "summary": "Hepatitis A - dose 1 - JE-1",
       "age_days": 365,
       "vaccines": [
-        {"slug": "hepa-1", "name": "Hepatitis A - 1", "subtitle": "Single dose if live attenuated vaccine"}
+        {"slug": "hepa-1", "name": "Hepatitis A - 1", "subtitle": "Single dose if live attenuated vaccine"},
+        {"slug": "je-1", "name": "JE - 1", "subtitle": "Japanese Encephalitis - dose 1"}
+      ]
+    },
+    {
+      "key": "13_months",
+      "label": "13 MONTHS",
+      "summary": "JE-2 - MCV - dose 2",
+      "age_days": 396,
+      "vaccines": [
+        {"slug": "je-2", "name": "JE - 2", "subtitle": "Japanese Encephalitis - dose 2"},
+        {"slug": "mcv-2", "name": "MCV - 2", "subtitle": "Meningococcal Conjugate Vaccine"}
       ]
     },
     {
@@ -130,6 +151,42 @@
       "vaccines": [
         {"slug": "hepa-2", "name": "Hepatitis A - 2", "subtitle": "Only if using the inactivated vaccine"},
         {"slug": "varicella-2", "name": "Varicella - 2", "subtitle": "Chickenpox vaccine, 2nd dose"}
+      ]
+    },
+    {
+      "key": "2_years",
+      "label": "2 YEARS",
+      "summary": "Influenza - annual",
+      "age_days": 730,
+      "vaccines": [
+        {"slug": "influenza-y2", "name": "Influenza (IIV)", "subtitle": "Annual vaccination, pre-monsoon"}
+      ]
+    },
+    {
+      "key": "3_years",
+      "label": "3 YEARS",
+      "summary": "Influenza - annual",
+      "age_days": 1096,
+      "vaccines": [
+        {"slug": "influenza-y3", "name": "Influenza (IIV)", "subtitle": "Annual vaccination, pre-monsoon"}
+      ]
+    },
+    {
+      "key": "4_years",
+      "label": "4 YEARS",
+      "summary": "Influenza - annual",
+      "age_days": 1461,
+      "vaccines": [
+        {"slug": "influenza-y4", "name": "Influenza (IIV)", "subtitle": "Annual vaccination, pre-monsoon"}
+      ]
+    },
+    {
+      "key": "5_years",
+      "label": "5 YEARS",
+      "summary": "Influenza - annual",
+      "age_days": 1826,
+      "vaccines": [
+        {"slug": "influenza-y5", "name": "Influenza (IIV)", "subtitle": "Annual vaccination, pre-monsoon - last dose of the routine annual series"}
       ]
     },
     {
