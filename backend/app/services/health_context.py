@@ -42,11 +42,30 @@ def _vaccination_block(status: dict) -> str | None:
     ]
     if not given and not due:
         return None
-    lines = ["Vaccination record:"]
-    for v in given:
-        lines.append(f"  - {v['name']} ({v['subtitle']}): given on {v['date_administered']}")
-    for v in due:
-        lines.append(f"  - {v['name']} ({v['subtitle']}): due, not yet given")
+
+    # `given`/`due` are built by walking status["milestones"] in schedule
+    # order (birth -> ... -> 18y), not by administration date - real doses
+    # routinely land out of that order (catch-up, a skipped slot filled in
+    # later), so without an explicit re-sort + tag the model had no way to
+    # tell which given vaccine was actually most recent, and was picking
+    # whichever sat last in schedule order instead - then reasoning about
+    # "what's next" from that wrong anchor.
+    given_sorted = sorted(given, key=lambda v: v["date_administered"], reverse=True)
+
+    lines = ["Vaccination record - given (most recent first):"]
+    for i, v in enumerate(given_sorted):
+        tag = " [MOST RECENT]" if i == 0 else ""
+        lines.append(f"  - {v['name']} ({v['subtitle']}): given on {v['date_administered']}{tag}")
+
+    if due:
+        # status["milestones"] is already age-ascending, so `due` (built by
+        # walking it in order) is too - the first entry here is the
+        # earliest/longest-outstanding gap, i.e. the actual next one to get.
+        lines.append("Due, not yet given (earliest/most overdue first):")
+        for i, v in enumerate(due):
+            tag = " [NEXT DUE]" if i == 0 else ""
+            lines.append(f"  - {v['name']} ({v['subtitle']}){tag}")
+
     return "\n".join(lines)
 
 
