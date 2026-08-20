@@ -3765,7 +3765,7 @@ button.ghost.add-row:hover {
 
 .growth-table-row {
   display: grid;
-  grid-template-columns: 1fr 0.8fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 0.8fr 1fr 1fr 1fr 1fr 24px;
   gap: 6px;
   padding: 10px 4px;
   border-top: 1px solid var(--hairline);
@@ -3799,6 +3799,40 @@ button.ghost.add-row:hover {
 
 .growth-table-row .mint {
   color: var(--mint-text);
+}
+
+.growth-table-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Only manually-added measurements can be removed - a prescription-derived
+   row is tied to its source record (see source_prescription_id) and is
+   edited/cleared from there instead, so this button simply isn't rendered
+   for those rows and the cell stays empty. */
+.growth-table-delete {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.growth-table-delete:hover {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.growth-table-delete:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* ------------------------------------------------------------------ */
@@ -4328,7 +4362,7 @@ a:focus-visible,
     grid-template-columns: 1fr;
   }
   .growth-table-row {
-    grid-template-columns: 1fr 0.7fr 1fr 1fr;
+    grid-template-columns: 1fr 0.7fr 1fr 1fr 22px;
     font-size: 11.5px;
   }
   .growth-table-row > span:nth-child(5),

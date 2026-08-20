@@ -11,6 +11,7 @@ import {
   vaccinationsApi,
 } from "../api";
 import DatePicker from "../components/DatePicker";
+import { useConfirm } from "../components/ConfirmDialog";
 import { childAvatarColor, formatChildAgeShort, formatSourceDate, todayIso } from "../lib/format";
 
 const LAST_CHILD_KEY = "pp:last-child-id";
@@ -425,11 +426,13 @@ function PercentilesTab({
   child: Child;
   onManageChildren: () => void;
 }) {
+  const confirm = useConfirm();
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [curves, setCurves] = useState<PercentileCurves | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -452,6 +455,25 @@ function PercentilesTab({
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [child.id, child.sex]);
+
+  const removeMeasurement = async (m: Measurement) => {
+    const ok = await confirm({
+      title: "Delete this measurement?",
+      message: `Remove the entry from ${formatSourceDate(m.measured_on)}? This can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    setDeletingId(m.id);
+    try {
+      await measurementsApi.delete(m.id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete measurement");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <>
@@ -503,6 +525,7 @@ function PercentilesTab({
                   <span>HT %ILE</span>
                   <span>WEIGHT</span>
                   <span>WT %ILE</span>
+                  <span />
                 </div>
                 {measurements.map((m, i) => (
                   <div
@@ -517,6 +540,22 @@ function PercentilesTab({
                     <span className="violet">{m.height_percentile != null ? `${Math.round(m.height_percentile)}th` : "—"}</span>
                     <span>{m.weight_kg != null ? `${m.weight_kg} kg` : "—"}</span>
                     <span className="mint">{m.weight_percentile != null ? `${Math.round(m.weight_percentile)}th` : "—"}</span>
+                    <span className="growth-table-action">
+                      {m.source === "manual" && (
+                        <button
+                          type="button"
+                          className="growth-table-delete"
+                          aria-label={`Delete measurement from ${formatSourceDate(m.measured_on)}`}
+                          disabled={deletingId === m.id}
+                          onClick={() => removeMeasurement(m)}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 4.5h10M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4.5 4.5l.6 8.4a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8.4" />
+                            <path d="M6.5 7.5v4M9.5 7.5v4" />
+                          </svg>
+                        </button>
+                      )}
+                    </span>
                   </div>
                 ))}
               </>
