@@ -11,7 +11,7 @@ import ChildrenModal from "./components/ChildrenModal";
 import { useConfirm } from "./components/ConfirmDialog";
 import Logo from "./components/Logo";
 import ProfileModal from "./components/ProfileModal";
-import { MED_COLOR_HEX, childAvatarColor, formatChildAgeShort, pluralize } from "./lib/format";
+import { childAvatarColor, formatChildAgeShort, pluralize } from "./lib/format";
 import AskView from "./views/AskView";
 import ChildProfileView from "./views/ChildProfileView";
 import RecordsView from "./views/RecordsView";
@@ -80,8 +80,6 @@ export default function App() {
   const [recordsLoading, setRecordsLoading] = useState(true);
   const [recordsError, setRecordsError] = useState("");
   const [meds, setMeds] = useState<Med[]>([]);
-  const [selectedMedId, setSelectedMedId] = useState<string | null>(null);
-  const [showAllMeds, setShowAllMeds] = useState(false);
   const [children, setChildren] = useState<Child[]>([]);
   const [childrenModalOpen, setChildrenModalOpen] = useState(false);
 
@@ -151,11 +149,6 @@ export default function App() {
     }
   };
 
-  const handleMedClick = (m: Med) => {
-    setSelectedMedId(m.id);
-    navigate("/ask", { state: { seedQuestion: `Tell me about ${m.name}` } });
-  };
-
   const initial = (user?.display_name || user?.email || "?").charAt(0).toUpperCase();
 
   const navItems: { key: Tab; label: string; icon: (color: string) => ReactElement }[] = [
@@ -164,9 +157,6 @@ export default function App() {
     { key: "upload", label: "Upload", icon: (c) => <UploadIcon color={c} /> },
     { key: "child", label: "Child", icon: (c) => <ChildIcon color={c} /> },
   ];
-
-  const activeMeds = meds.filter((m) => m.active);
-  const visibleMeds = showAllMeds ? activeMeds : activeMeds.slice(0, 6);
 
   return (
     <div className="shell">
@@ -226,35 +216,6 @@ export default function App() {
                 <span className="rail-child-avatar dashed">+</span>
                 <span className="rail-child-name">Add child</span>
               </button>
-            </div>
-          </div>
-        )}
-
-        {activeMeds.length > 0 && (
-          <div className="rail-meds">
-            <div className="rail-meds-heading">YOUR MEDS</div>
-            <div className="rail-meds-list">
-              {visibleMeds.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={`rail-med-row ${selectedMedId === m.id ? "selected" : ""}`}
-                  onClick={() => handleMedClick(m)}
-                >
-                  <span className="med-chip" style={{ background: MED_COLOR_HEX[m.color_key] }} />
-                  <span className="rail-med-name">{m.name}</span>
-                  <span className="rail-med-cadence">{m.cadence}</span>
-                </button>
-              ))}
-              {!showAllMeds && activeMeds.length > 6 && (
-                <button
-                  type="button"
-                  className="rail-med-show-all"
-                  onClick={() => setShowAllMeds(true)}
-                >
-                  Show all ({activeMeds.length})
-                </button>
-              )}
             </div>
           </div>
         )}

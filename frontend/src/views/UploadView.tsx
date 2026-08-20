@@ -150,7 +150,16 @@ export default function UploadView({
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
+        video: {
+          facingMode: { ideal: "environment" },
+          // Browsers clamp "ideal" to whatever the device actually
+          // supports - this just asks for the sharpest capture available
+          // instead of settling for whatever low-res default getUserMedia
+          // would otherwise pick, since a full-screen viewfinder makes
+          // that difference visible.
+          width: { ideal: 4096 },
+          height: { ideal: 2160 },
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -175,6 +184,13 @@ export default function UploadView({
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    // Document-scan style enhancement, baked into the pixels at capture
+    // time: punchier contrast separates ink from paper, a touch of extra
+    // brightness offsets the shadow a phone held above a page tends to
+    // cast, and a slight desaturation cuts down on paper-texture/lighting
+    // colour noise - all of which reads as "sharper" and helps OCR, without
+    // the cost/complexity of a real deconvolution sharpen filter.
+    ctx.filter = "contrast(1.3) brightness(1.06) saturate(0.85)";
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(
       (blob) => {
@@ -224,8 +240,8 @@ export default function UploadView({
         source_job_id: sourceJobId,
       });
       onSaved();
+      reset();
       if (addAnother) {
-        reset();
         return;
       }
       if (wasFirstRecord) {
@@ -241,58 +257,70 @@ export default function UploadView({
   };
 
   return (
-    <div className="panel" style={{ display: visible ? undefined : "none" }}>
-      <div className="panel-head">
-        <h1>Add a prescription</h1>
-        <span className="privacy-pill">
-          <span className="dot" />
-          Stays on your account
-        </span>
-      </div>
+    <>
+      {cameraOpen && (
+        <div className="camera-fullscreen" role="dialog" aria-modal="true" aria-label="Camera">
+          <video ref={videoRef} className="camera-fullscreen-video" playsInline muted autoPlay />
+          <div className="camera-guide-wrap" aria-hidden="true">
+            <div className="camera-guide" />
+          </div>
+          <button
+            type="button"
+            className="camera-cancel-btn"
+            onClick={stopCamera}
+            aria-label="Cancel"
+          >
+            ✕
+          </button>
+          <div className="camera-fullscreen-actions">
+            <button
+              type="button"
+              className="camera-capture-btn"
+              onClick={capturePhoto}
+              aria-label="Capture photo"
+            />
+          </div>
+        </div>
+      )}
 
-      <div className="content--page">
-        <div className="page upload-page">
-          {stage !== "review" && (
-            <div
-              className={`dropzone ${dragOver ? "drag-over" : ""}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                onFilesPicked(e.dataTransfer.files);
-              }}
-            >
-              {!cameraOpen && (
-                <>
-                  <div className="dropzone-tile">
-                    <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#5B4BE6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10 13.5V4M6.5 7.5 10 4l3.5 3.5" />
-                      <path d="M4 13v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2" />
-                    </svg>
-                  </div>
-                  <div className="dropzone-title">Drop photo(s) here</div>
-                  <div className="dropzone-sub">
-                    JPG or PNG · up to 20 MB each · multiple pages of one visit? select them
-                    all at once
-                  </div>
-                </>
-              )}
+      <div className="panel" style={{ display: visible ? undefined : "none" }}>
+        <div className="panel-head">
+          <h1>Add a prescription</h1>
+          <span className="privacy-pill">
+            <span className="dot" />
+            Stays on your account
+          </span>
+        </div>
 
-              {cameraOpen ? (
-                <div className="camera-panel">
-                  <video ref={videoRef} className="camera-video" playsInline muted autoPlay />
-                  <div className="camera-actions">
-                    <button onClick={capturePhoto}>Capture</button>
-                    <button className="ghost" onClick={stopCamera}>
-                      Cancel
-                    </button>
-                  </div>
+        <div className="content--page">
+          <div className="page upload-page">
+            {stage !== "review" && (
+              <div
+                className={`dropzone ${dragOver ? "drag-over" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  onFilesPicked(e.dataTransfer.files);
+                }}
+              >
+                <div className="dropzone-tile">
+                  <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#5B4BE6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13.5V4M6.5 7.5 10 4l3.5 3.5" />
+                    <path d="M4 13v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2" />
+                  </svg>
                 </div>
-              ) : stage === "uploading" ? (
+                <div className="dropzone-title">Drop photo(s) here</div>
+                <div className="dropzone-sub">
+                  JPG or PNG · up to 20 MB each · multiple pages of one visit? select them
+                  all at once
+                </div>
+
+                {stage === "uploading" ? (
                 <div className="upload-progress">
                   <div className="progress-track">
                     <div className="progress-fill" style={{ width: `${progress}%` }} />
@@ -415,8 +443,9 @@ export default function UploadView({
               </div>
             </>
           )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

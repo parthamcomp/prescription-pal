@@ -205,87 +205,11 @@ a:hover {
   white-space: nowrap;
 }
 
-.rail-meds-heading {
-  padding: 22px 8px 10px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-}
-
-.rail-meds-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.rail-med-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 13px;
-  background: transparent;
-  border: none;
-  color: var(--ink);
-  cursor: pointer;
-  font-family: var(--font-body);
-  text-align: left;
-  width: 100%;
-  transition: background-color 0.14s ease;
-}
-
-.rail-med-row:hover {
-  background: var(--surface-alt);
-}
-
-.rail-med-row.selected {
-  background: var(--surface-alt);
-}
-
-.rail-med-row.selected:hover {
-  background: var(--surface-alt-hover);
-}
-
 .med-chip {
   width: 9px;
   height: 9px;
   border-radius: 3px;
   flex-shrink: 0;
-}
-
-.rail-med-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rail-med-cadence {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
-.rail-med-show-all {
-  padding: 6px 10px;
-  border: none;
-  background: transparent;
-  color: var(--primary-hover);
-  font-family: var(--font-body);
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: left;
-}
-
-.rail-med-show-all:hover {
-  background: transparent;
-  text-decoration: underline;
 }
 
 .rail-spacer {
@@ -1666,26 +1590,89 @@ a:hover {
   background: var(--violet-tint);
 }
 
-.camera-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
+/* Full-screen camera viewfinder - a small boxed-in preview forced the user
+   to hold the phone far enough back to fit an A4 page that the resulting
+   text was too small/blurry to OCR well. This fills the whole viewport
+   (position:fixed, same escape-the-layout approach as .modal-overlay)
+   instead, and overlays an A4-shaped guide so the user can still frame the
+   page without a boxed preview constraining how close they can get. */
+.camera-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: #000;
+  overflow: hidden;
 }
 
-.camera-video {
+.camera-fullscreen-video {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 420px;
-  aspect-ratio: 4 / 3;
-  border-radius: 16px;
-  background: #000;
+  height: 100%;
   object-fit: cover;
 }
 
-.camera-actions {
+.camera-guide-wrap {
+  position: absolute;
+  inset: 0;
   display: flex;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* The box-shadow "spotlight" trick: a huge shadow spread dims everything
+   outside the guide box without needing separate overlay panels on each
+   side, and gets naturally clipped to the screen by .camera-fullscreen's
+   own fixed, viewport-sized bounds. */
+.camera-guide {
+  width: 82vw;
+  max-width: 480px;
+  aspect-ratio: 1 / 1.414;
+  max-height: 70vh;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+}
+
+.camera-cancel-btn {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: 16px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.camera-fullscreen-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+}
+
+.camera-capture-btn {
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+}
+
+.camera-capture-btn:active {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .dropzone-error {
@@ -4172,7 +4159,6 @@ input:focus-visible,
 a:focus-visible,
 .source-card:focus-visible,
 .suggestion:focus-visible,
-.rail-med-row:focus-visible,
 .nav-item:focus-visible,
 .bottomnav-item:focus-visible,
 .record-card:focus-visible,
@@ -4226,7 +4212,6 @@ a:focus-visible,
   .signout-btn,
   .nav-label,
   .nav-count,
-  .rail-meds,
   .rail-children {
     display: none;
   }
