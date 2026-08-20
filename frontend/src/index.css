@@ -3806,6 +3806,129 @@ button.ghost.add-row:hover {
   cursor: default;
 }
 
+/* Mobile "Recent measurements" cards - the desktop 7-column grid table
+   doesn't fit a phone width (DATE/AGE/HEIGHT/HT%ILE/WEIGHT/WT%ILE/action
+   all need their own column). Both .growth-table-desktop and
+   .growth-card-list render unconditionally; only one is display:block at
+   a time, toggled at the 480px breakpoint below - the mobile shape
+   (date+age line, then a 2-column stat block) isn't something a media
+   query could reflow the same grid markup into, so this is a second,
+   parallel DOM structure over the same data rather than a pure CSS reflow. */
+.growth-card-list {
+  display: none;
+}
+
+.growth-measure-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1.5px solid var(--hairline);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.growth-measure-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.growth-measure-date {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink-2);
+}
+
+.growth-measure-card.latest .growth-measure-date {
+  color: var(--ink);
+}
+
+.growth-measure-age {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.growth-measure-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.growth-measure-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.growth-measure-stat-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #9a98b5;
+}
+
+.growth-measure-stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.growth-measure-card.latest .growth-measure-stat-value {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.growth-measure-pct {
+  margin-left: 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.growth-measure-pct.violet {
+  color: #4536c9;
+}
+
+.growth-measure-pct.mint {
+  color: var(--mint-text);
+}
+
+/* Manual-only, same rule as .growth-table-delete - always visible (not
+   hover-gated) since touch has no hover state. */
+.growth-measure-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.growth-measure-delete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 480px) {
+  .growth-table-desktop {
+    display: none;
+  }
+  .growth-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Vaccination tracker                                                */
 /* ------------------------------------------------------------------ */

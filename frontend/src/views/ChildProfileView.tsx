@@ -518,33 +518,66 @@ function PercentilesTab({
               </div>
             ) : (
               <>
-                <div className="growth-table-row growth-table-head">
-                  <span>DATE</span>
-                  <span>AGE</span>
-                  <span>HEIGHT</span>
-                  <span>HT %ILE</span>
-                  <span>WEIGHT</span>
-                  <span>WT %ILE</span>
-                  <span />
+                {/* Desktop: 7-column grid table. Unchanged - the mobile
+                    reflow below is a different DOM shape (date+age on one
+                    line, then a 2-column stat block), not something a media
+                    query alone can reflow this grid into, so both are
+                    rendered and toggled with display:none/block per
+                    breakpoint (see .growth-table-desktop/.growth-card-list). */}
+                <div className="growth-table-desktop">
+                  <div className="growth-table-row growth-table-head">
+                    <span>DATE</span>
+                    <span>AGE</span>
+                    <span>HEIGHT</span>
+                    <span>HT %ILE</span>
+                    <span>WEIGHT</span>
+                    <span>WT %ILE</span>
+                    <span />
+                  </div>
+                  {measurements.map((m, i) => (
+                    <div
+                      key={m.id}
+                      className={`growth-table-row ${i === 0 ? "latest" : ""}`}
+                    >
+                      <span>{formatSourceDate(m.measured_on)}</span>
+                      <span className="muted">
+                        {child.date_of_birth ? formatChildAgeShort(child.date_of_birth, m.measured_on) : "—"}
+                      </span>
+                      <span>{m.height_cm != null ? `${m.height_cm} cm` : "—"}</span>
+                      <span className="violet">{m.height_percentile != null ? `${Math.round(m.height_percentile)}th` : "—"}</span>
+                      <span>{m.weight_kg != null ? `${m.weight_kg} kg` : "—"}</span>
+                      <span className="mint">{m.weight_percentile != null ? `${Math.round(m.weight_percentile)}th` : "—"}</span>
+                      <span className="growth-table-action">
+                        {m.source === "manual" && (
+                          <button
+                            type="button"
+                            className="growth-table-delete"
+                            aria-label={`Delete measurement from ${formatSourceDate(m.measured_on)}`}
+                            disabled={deletingId === m.id}
+                            onClick={() => removeMeasurement(m)}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3 4.5h10M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4.5 4.5l.6 8.4a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8.4" />
+                              <path d="M6.5 7.5v4M9.5 7.5v4" />
+                            </svg>
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                {measurements.map((m, i) => (
-                  <div
-                    key={m.id}
-                    className={`growth-table-row ${i === 0 ? "latest" : ""}`}
-                  >
-                    <span>{formatSourceDate(m.measured_on)}</span>
-                    <span className="muted">
-                      {child.date_of_birth ? formatChildAgeShort(child.date_of_birth, m.measured_on) : "—"}
-                    </span>
-                    <span>{m.height_cm != null ? `${m.height_cm} cm` : "—"}</span>
-                    <span className="violet">{m.height_percentile != null ? `${Math.round(m.height_percentile)}th` : "—"}</span>
-                    <span>{m.weight_kg != null ? `${m.weight_kg} kg` : "—"}</span>
-                    <span className="mint">{m.weight_percentile != null ? `${Math.round(m.weight_percentile)}th` : "—"}</span>
-                    <span className="growth-table-action">
+
+                {/* Mobile: stacked cards, one per measurement. */}
+                <div className="growth-card-list">
+                  {measurements.map((m, i) => (
+                    <div
+                      key={m.id}
+                      className={`growth-measure-card ${i === 0 ? "latest" : ""}`}
+                    >
                       {m.source === "manual" && (
                         <button
                           type="button"
-                          className="growth-table-delete"
+                          className="growth-measure-delete"
                           aria-label={`Delete measurement from ${formatSourceDate(m.measured_on)}`}
                           disabled={deletingId === m.id}
                           onClick={() => removeMeasurement(m)}
@@ -555,9 +588,35 @@ function PercentilesTab({
                           </svg>
                         </button>
                       )}
-                    </span>
-                  </div>
-                ))}
+                      <div className="growth-measure-top">
+                        <span className="growth-measure-date">{formatSourceDate(m.measured_on)}</span>
+                        <span className="growth-measure-age">
+                          {child.date_of_birth ? formatChildAgeShort(child.date_of_birth, m.measured_on) : "—"}
+                        </span>
+                      </div>
+                      <div className="growth-measure-stats">
+                        <div className="growth-measure-stat">
+                          <span className="growth-measure-stat-label">HEIGHT</span>
+                          <span className="growth-measure-stat-value">
+                            {m.height_cm != null ? `${m.height_cm} cm` : "—"}
+                            {m.height_percentile != null && (
+                              <span className="growth-measure-pct violet">{Math.round(m.height_percentile)}th</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="growth-measure-stat">
+                          <span className="growth-measure-stat-label">WEIGHT</span>
+                          <span className="growth-measure-stat-value">
+                            {m.weight_kg != null ? `${m.weight_kg} kg` : "—"}
+                            {m.weight_percentile != null && (
+                              <span className="growth-measure-pct mint">{Math.round(m.weight_percentile)}th</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
           </div>
