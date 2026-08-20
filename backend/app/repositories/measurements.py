@@ -64,3 +64,50 @@ async def delete_for_user(
     await db.delete(m)
     await db.commit()
     return True
+
+
+async def get_for_prescription(
+    db: AsyncSession, user_id: uuid.UUID, prescription_id: uuid.UUID
+) -> Measurement | None:
+    result = await db.execute(
+        select(Measurement).where(
+            Measurement.user_id == user_id,
+            Measurement.source_prescription_id == prescription_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def upsert_for_prescription(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    child_id: uuid.UUID,
+    prescription_id: uuid.UUID,
+    measured_on: date,
+    height_cm: float | None,
+    weight_kg: float | None,
+) -> Measurement:
+    m = await get_for_prescription(db, user_id, prescription_id)
+    if m is None:
+        m = Measurement(
+            user_id=user_id,
+            child_id=child_id,
+            source="prescription",
+            source_prescription_id=prescription_id,
+        )
+        db.add(m)
+    m.measured_on = measured_on
+    m.height_cm = height_cm
+    m.weight_kg = weight_kg
+    await db.commit()
+    await db.refresh(m)
+    return m
+
+
+async def delete_for_prescription(
+    db: AsyncSession, user_id: uuid.UUID, prescription_id: uuid.UUID
+) -> None:
+    m = await get_for_prescription(db, user_id, prescription_id)
+    if m is not None:
+        await db.delete(m)
+        await db.commit()

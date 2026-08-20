@@ -191,6 +191,14 @@ export default function PrescriptionForm({
             placeholder="e.g. 14 kg"
           />
         </label>
+        <label className="review-grid-full">
+          Child height
+          <input
+            value={value.child_height}
+            onChange={(e) => set("child_height", e.target.value)}
+            placeholder="e.g. 96 cm"
+          />
+        </label>
       </div>
 
       <label className="stacked-field">

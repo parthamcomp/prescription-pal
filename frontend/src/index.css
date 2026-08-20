@@ -1806,6 +1806,10 @@ a:hover {
   gap: 10px;
 }
 
+.review-grid-full {
+  grid-column: 1 / -1;
+}
+
 .review-grid label {
   display: flex;
   flex-direction: column;
@@ -2206,28 +2210,6 @@ textarea:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-}
-
-.unit-field {
-  display: flex;
-  gap: 6px;
-}
-
-.unit-field input {
-  flex: 1;
-  min-width: 0;
-}
-
-.unit-field select {
-  width: 64px;
-  flex-shrink: 0;
-  padding: 10px 8px;
-  border: none;
-  border-radius: 14px;
-  font-size: 14px;
-  font-family: var(--font-body);
-  background: var(--surface-tint);
-  color: var(--ink);
 }
 
 .meds {
@@ -2937,6 +2919,33 @@ button.ghost.add-row:hover {
 }
 
 .add-child-submit {
+  flex-shrink: 0;
+}
+
+/* Editing an existing child - same shape as .add-child-fields above, but
+   this row was still using the generic .profile-inline-edit (shared with
+   the much shorter read-only view row, whose right-aligned/no-flex-basis
+   layout let the name input get squeezed to invisible once a date picker +
+   sex select + save button were also packed into the same narrow row). */
+.edit-child-fields {
+  justify-content: flex-start;
+}
+
+.edit-child-name {
+  flex: 1;
+  min-width: 60px;
+}
+
+.edit-child-dob {
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.edit-child-fields .custom-select-trigger.field-select {
+  width: 110px;
+}
+
+.edit-child-submit {
   flex-shrink: 0;
 }
 
@@ -3681,6 +3690,22 @@ button.ghost.add-row:hover {
   padding: 24px;
 }
 
+.growth-empty-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.growth-empty-link:hover {
+  background: none;
+  color: var(--primary-hover);
+}
+
 .growth-table-card {
   padding: 16px 18px 18px;
   border-radius: 20px;
@@ -4027,6 +4052,19 @@ button.ghost.add-row:hover {
   .add-child-fields .custom-select-trigger.field-select {
     width: 100%;
   }
+  .edit-child-fields {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .edit-child-name,
+  .edit-child-dob,
+  .edit-child-submit {
+    width: 100%;
+  }
+  .edit-child-fields .custom-select-trigger.field-select {
+    width: 100%;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -4155,6 +4193,30 @@ a:focus-visible,
   }
   .ghost-btn.newchat {
     display: none;
+  }
+  /* ChildProfileView's panel-head packs a child selector + a two-button tab
+     capsule - together they don't fit one row at mobile width and, since
+     .panel-head never wrapped, the capsule was simply pushed off-screen
+     (with the whole page gaining a horizontal scrollbar) instead of
+     dropping to its own line. */
+  .panel-head:has(.child-picker) {
+    flex-wrap: wrap;
+  }
+  .panel-head .child-picker {
+    flex: 1 1 100%;
+  }
+  .panel-head .child-picker-trigger {
+    max-width: none;
+    width: 100%;
+  }
+  .panel-head .tab-capsule {
+    flex: 1 1 100%;
+  }
+  .panel-head .tab-capsule .tab-capsule-btn {
+    flex: 1;
+  }
+  .panel-head .panel-head-spacer {
+    flex-basis: 0;
   }
   .panel-scroll {
     padding: 16px 14px 6px;

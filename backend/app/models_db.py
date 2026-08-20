@@ -124,6 +124,7 @@ class Prescription(Base):
     medications: Mapped[list] = mapped_column(JSONB, default=list)
     child_age: Mapped[str] = mapped_column(String(50), default="")
     child_weight: Mapped[str] = mapped_column(String(50), default="")
+    child_height: Mapped[str] = mapped_column(String(50), default="")
     # Which child this visit belongs to. The API requires a child on every
     # create/update (see PrescriptionCreate) so there are no new unassigned
     # records going forward; this column stays nullable at the DB level only
@@ -198,12 +199,26 @@ class Measurement(Base):
     measured_on: Mapped[date] = mapped_column(Date, nullable=False)
     height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
-    # "manual" (typed in the Percentiles tab) or "ocr" (read off a saved
-    # prescription's vitals section) - drives the Recent measurements table's
-    # source styling, nothing behavioral.
-    source: Mapped[str] = mapped_column(String(10), default="manual")
-    # Object-storage keys of the originating photo(s), same shape and
-    # provenance as Prescription.image_keys - empty for manual entries.
+    # "manual" (added via the Percentiles tab's +Add measurement) or
+    # "prescription" (derived from a Prescription's child_height/child_weight
+    # free-text fields - see routers/prescriptions.py::_sync_growth_measurement).
+    source: Mapped[str] = mapped_column(String(15), default="manual")
+    # Links a "prescription"-sourced row back to the record it was derived
+    # from, so re-saving that record can find and update (rather than
+    # duplicate) the measurement it previously produced, and clearing the
+    # height/weight text there can delete it. Null for manually-added rows.
+    # ON DELETE CASCADE: a derived measurement has no meaning once the
+    # prescription it came from is gone.
+    source_prescription_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("prescriptions.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    # Object-storage keys of the originating photo(s) - unused now that
+    # measurements are either typed directly or derived from a prescription's
+    # own text fields, kept only so existing rows written by the earlier
+    # OCR-linked flow still deserialize.
     image_keys: Mapped[list[str]] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

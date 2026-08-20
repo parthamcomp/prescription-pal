@@ -35,6 +35,7 @@ class PrescriptionBase(BaseModel):
     medications: list[Medication] = Field(default_factory=list)
     child_age: str = Field("", max_length=50)
     child_weight: str = Field("", max_length=50)
+    child_height: str = Field("", max_length=50)
     child_id: Optional[UUID] = None
     additional_notes: str = Field("", max_length=5000)
     source_text: str = Field("", max_length=20000)
@@ -180,13 +181,15 @@ class MeasurementCreate(BaseModel):
     measured_on: date
     # Raw value + unit, never trusting the client to have already converted -
     # services/units.py does the one canonical conversion, shared with the
-    # OCR extraction path.
+    # prescription-derived path (services/units.py::parse_height_text/
+    # parse_weight_text). Always source="manual" - this endpoint is only
+    # ever called from the Percentiles tab's +Add measurement; the other
+    # source, "prescription", is written directly by
+    # routers/prescriptions.py, never through this schema.
     height_value: Optional[float] = Field(None, gt=0, le=250)
     height_unit: HeightUnit = "cm"
     weight_value: Optional[float] = Field(None, gt=0, le=200)
     weight_unit: WeightUnit = "kg"
-    source: Literal["manual", "ocr"] = "manual"
-    source_job_id: Optional[UUID] = None
 
     @field_validator("weight_value")
     @classmethod

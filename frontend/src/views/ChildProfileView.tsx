@@ -222,6 +222,7 @@ function GrowthCard({
   child,
   curve,
   measurements,
+  onManageChildren,
 }: {
   title: string;
   measure: "height" | "weight";
@@ -229,6 +230,7 @@ function GrowthCard({
   child: Child;
   curve: PercentileCurvePoint[] | null;
   measurements: Measurement[];
+  onManageChildren: () => void;
 }) {
   const colors = CHART_COLORS[measure];
   const valueKey = measure === "height" ? "height_cm" : "weight_kg";
@@ -310,6 +312,13 @@ function GrowthCard({
             </div>
           )}
         </>
+      ) : !child.sex ? (
+        <div className="growth-empty">
+          Set {child.name}&apos;s sex to see WHO percentile bands here.{" "}
+          <button type="button" className="growth-empty-link" onClick={onManageChildren}>
+            Set now
+          </button>
+        </div>
       ) : (
         <div className="growth-empty">No measurements yet</div>
       )}
@@ -347,7 +356,6 @@ function AddMeasurementModal({
         height_unit: "cm",
         weight_value: weightValue ? Number(weightValue) : null,
         weight_unit: "kg",
-        source: "manual",
       });
       onSaved();
       onClose();
@@ -409,7 +417,13 @@ function AddMeasurementModal({
   );
 }
 
-function PercentilesTab({ child }: { child: Child }) {
+function PercentilesTab({
+  child,
+  onManageChildren,
+}: {
+  child: Child;
+  onManageChildren: () => void;
+}) {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [curves, setCurves] = useState<PercentileCurves | null>(null);
   const [loading, setLoading] = useState(true);
@@ -459,6 +473,7 @@ function PercentilesTab({ child }: { child: Child }) {
                 child={child}
                 curve={curves?.height_for_age ?? null}
                 measurements={measurements}
+                onManageChildren={onManageChildren}
               />
               <GrowthCard
                 title="Weight-for-age"
@@ -467,6 +482,7 @@ function PercentilesTab({ child }: { child: Child }) {
                 child={child}
                 curve={curves?.weight_for_age ?? null}
                 measurements={measurements}
+                onManageChildren={onManageChildren}
               />
             </div>
           )}
@@ -832,7 +848,7 @@ export default function ChildProfileView({
           </div>
 
           {tab === "percentiles" ? (
-            <PercentilesTab key={child.id} child={child} />
+            <PercentilesTab key={child.id} child={child} onManageChildren={onManageChildren} />
           ) : (
             <VaccinationTab key={child.id} child={child} />
           )}

@@ -15,6 +15,7 @@ export interface Prescription {
   medications: Medication[];
   child_age: string;
   child_weight: string;
+  child_height: string;
   child_id?: string | null;
   additional_notes: string;
   source_text?: string;
@@ -121,11 +122,6 @@ export interface JobCreated {
 
 export type ExtractedDraft = Prescription & {
   low_confidence?: string[];
-  // Vitals read off the prescription photo, if any were present - not a
-  // Prescription field, only ever carried on the job payload so the Upload
-  // review screen can offer a separate "Growth data found" save.
-  height_cm?: number | null;
-  weight_kg?: number | null;
 };
 
 export interface JobOut {
@@ -154,6 +150,7 @@ export const emptyPrescription = (): Prescription => ({
   medications: [emptyMedication()],
   child_age: "",
   child_weight: "",
+  child_height: "",
   child_id: null,
   additional_notes: "",
 });
@@ -418,7 +415,7 @@ export interface Measurement {
   measured_on: string;
   height_cm: number | null;
   weight_kg: number | null;
-  source: "manual" | "ocr";
+  source: "manual" | "prescription";
   age_months: number | null;
   height_percentile: number | null;
   weight_percentile: number | null;
@@ -431,8 +428,6 @@ export interface MeasurementCreate {
   height_unit?: "cm" | "in";
   weight_value?: number | null;
   weight_unit?: "kg" | "lb";
-  source?: "manual" | "ocr";
-  source_job_id?: string | null;
 }
 
 export interface PercentileCurvePoint {

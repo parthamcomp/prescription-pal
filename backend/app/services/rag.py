@@ -137,6 +137,7 @@ def build_document(p: PrescriptionBase) -> str:
 Date: {p.date_of_visit or 'unknown'}
 Child age: {p.child_age}
 Child weight: {p.child_weight}
+Child height: {p.child_height}
 Complaint: {p.complaint}
 Diagnosis: {p.diagnosis}
 Medications:

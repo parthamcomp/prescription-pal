@@ -17,6 +17,7 @@ def _apply(model: Prescription, data: PrescriptionCreate) -> None:
     model.medications = [m.model_dump() for m in data.medications]
     model.child_age = data.child_age
     model.child_weight = data.child_weight
+    model.child_height = data.child_height
     model.child_id = data.child_id
     model.additional_notes = data.additional_notes
     model.source_text = data.source_text

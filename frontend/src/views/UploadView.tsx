@@ -5,20 +5,10 @@ import {
   Prescription,
   emptyMedication,
   emptyPrescription,
-  measurementsApi,
   prescriptionsApi,
 } from "../api";
 import { useConfirm } from "../components/ConfirmDialog";
 import PrescriptionForm, { validatePrescription } from "../components/PrescriptionForm";
-import { todayIso } from "../lib/format";
-
-interface GrowthDraft {
-  measured_on: string;
-  height_value: string;
-  height_unit: "cm" | "in";
-  weight_value: string;
-  weight_unit: "kg" | "lb";
-}
 
 interface UploadViewProps {
   visible: boolean;
@@ -60,11 +50,6 @@ export default function UploadView({
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [sourceJobId, setSourceJobId] = useState<string | null>(null);
 
-  const [growthDraft, setGrowthDraft] = useState<GrowthDraft | null>(null);
-  const [growthBusy, setGrowthBusy] = useState(false);
-  const [growthError, setGrowthError] = useState("");
-  const [growthSaved, setGrowthSaved] = useState(false);
-
   const reset = () => {
     setStage("idle");
     setProgress(0);
@@ -75,10 +60,6 @@ export default function UploadView({
     setLowConfidence([]);
     setValidationErrors([]);
     setSourceJobId(null);
-    setGrowthDraft(null);
-    setGrowthBusy(false);
-    setGrowthError("");
-    setGrowthSaved(false);
   };
 
   const MAX_PAGES = 6;
@@ -110,7 +91,7 @@ export default function UploadView({
       );
       setOcrText(job.raw_text);
       const extracted = job.extracted ?? { ...emptyPrescription(), low_confidence: [] };
-      const { low_confidence, height_cm, weight_kg, ...rest } = extracted;
+      const { low_confidence, ...rest } = extracted;
       const p = rest as Prescription;
       if (!p.medications || p.medications.length === 0) {
         p.medications = [emptyMedication()];
@@ -120,17 +101,6 @@ export default function UploadView({
       }
       setDraft(p);
       setLowConfidence(low_confidence ?? []);
-      // Always offer the growth panel, not just when OCR happened to detect
-      // vitals on the page - pre-filled if it did, blank and ready for
-      // manual entry either way, so a photo with no visible height/weight
-      // still lets the user log a measurement in the same review pass.
-      setGrowthDraft({
-        measured_on: p.date_of_visit || todayIso(),
-        height_value: height_cm != null ? String(height_cm) : "",
-        height_unit: "cm",
-        weight_value: weight_kg != null ? String(weight_kg) : "",
-        weight_unit: "kg",
-      });
       setSource("photo");
       setSourceJobId(job.id);
       setStage("review");
@@ -229,13 +199,6 @@ export default function UploadView({
       child_id: childList.length === 1 ? childList[0].id : null,
     });
     setLowConfidence([]);
-    setGrowthDraft({
-      measured_on: todayIso(),
-      height_value: "",
-      height_unit: "cm",
-      weight_value: "",
-      weight_unit: "kg",
-    });
     setSource("typed");
     setStage("review");
   };
@@ -245,39 +208,6 @@ export default function UploadView({
       if (!(await confirm({ message: "Discard this record?", confirmLabel: "Discard", danger: true }))) return;
     }
     reset();
-  };
-
-  const hasPendingGrowthData = () =>
-    !!growthDraft && !growthSaved && (!!growthDraft.height_value || !!growthDraft.weight_value);
-
-  // Shared by the standalone "Save growth data" button and by save() below -
-  // "Save record" used to leave any height/weight typed into this panel
-  // unsaved unless the user separately noticed and clicked this button too,
-  // which is exactly the kind of thing that's easy to miss. save() now
-  // calls this itself so a single "Save record" click persists both.
-  const doSaveGrowth = async (childId: string): Promise<boolean> => {
-    if (!growthDraft) return true;
-    setGrowthBusy(true);
-    setGrowthError("");
-    try {
-      await measurementsApi.create({
-        child_id: childId,
-        measured_on: growthDraft.measured_on,
-        height_value: growthDraft.height_value ? Number(growthDraft.height_value) : null,
-        height_unit: growthDraft.height_unit,
-        weight_value: growthDraft.weight_value ? Number(growthDraft.weight_value) : null,
-        weight_unit: growthDraft.weight_unit,
-        source: "ocr",
-        source_job_id: sourceJobId,
-      });
-      setGrowthSaved(true);
-      return true;
-    } catch (e) {
-      setGrowthError(e instanceof Error ? e.message : "Failed to save growth data");
-      return false;
-    } finally {
-      setGrowthBusy(false);
-    }
   };
 
   const save = async (addAnother: boolean) => {
@@ -293,9 +223,6 @@ export default function UploadView({
         ...draft,
         source_job_id: sourceJobId,
       });
-      if (hasPendingGrowthData() && draft.child_id) {
-        await doSaveGrowth(draft.child_id);
-      }
       onSaved();
       if (addAnother) {
         reset();
@@ -311,11 +238,6 @@ export default function UploadView({
     } finally {
       setBusy(false);
     }
-  };
-
-  const saveGrowth = async () => {
-    if (!draft?.child_id) return;
-    await doSaveGrowth(draft.child_id);
   };
 
   return (
@@ -472,108 +394,6 @@ export default function UploadView({
                   </div>
                 )}
               </div>
-
-              {growthDraft && (
-                <div className="review-card">
-                  <div className="review-card-head">
-                    <span className="med-tag">
-                      <span className="med-tag-square" style={{ background: "#17C39A" }} />
-                      Height &amp; weight (optional)
-                    </span>
-                    <span className="review-card-hint">
-                      Goes to the child&apos;s growth chart when you save this record
-                    </span>
-                  </div>
-
-                  <div className="grid2">
-                    <label>
-                      Height
-                      <span className="unit-field">
-                        <input
-                          type="number"
-                          value={growthDraft.height_value}
-                          onChange={(e) =>
-                            setGrowthDraft({ ...growthDraft, height_value: e.target.value })
-                          }
-                        />
-                        <select
-                          value={growthDraft.height_unit}
-                          onChange={(e) =>
-                            setGrowthDraft({
-                              ...growthDraft,
-                              height_unit: e.target.value as "cm" | "in",
-                            })
-                          }
-                        >
-                          <option value="cm">cm</option>
-                          <option value="in">in</option>
-                        </select>
-                      </span>
-                    </label>
-                    <label>
-                      Weight
-                      <span className="unit-field">
-                        <input
-                          type="number"
-                          value={growthDraft.weight_value}
-                          onChange={(e) =>
-                            setGrowthDraft({ ...growthDraft, weight_value: e.target.value })
-                          }
-                        />
-                        <select
-                          value={growthDraft.weight_unit}
-                          onChange={(e) =>
-                            setGrowthDraft({
-                              ...growthDraft,
-                              weight_unit: e.target.value as "kg" | "lb",
-                            })
-                          }
-                        >
-                          <option value="kg">kg</option>
-                          <option value="lb">lb</option>
-                        </select>
-                      </span>
-                    </label>
-                  </div>
-                  <label>
-                    Measured on
-                    <input
-                      type="date"
-                      value={growthDraft.measured_on}
-                      onChange={(e) =>
-                        setGrowthDraft({ ...growthDraft, measured_on: e.target.value })
-                      }
-                    />
-                  </label>
-
-                  {growthError && <p className="field-hint error-text">{growthError}</p>}
-
-                  <div className="actions form-actions">
-                    <button
-                      className="ghost"
-                      onClick={saveGrowth}
-                      disabled={
-                        growthBusy ||
-                        growthSaved ||
-                        !draft.child_id ||
-                        (!growthDraft.height_value && !growthDraft.weight_value)
-                      }
-                      title={
-                        !draft.child_id
-                          ? "Select a child first"
-                          : !growthDraft.height_value && !growthDraft.weight_value
-                          ? "Enter a height or weight to save"
-                          : undefined
-                      }
-                    >
-                      {growthSaved ? "Saved to growth chart" : "Save growth data now"}
-                    </button>
-                  </div>
-                  <p className="field-hint">
-                    Optional - saving the record below also saves this automatically.
-                  </p>
-                </div>
-              )}
 
               {ocrText && (
                 <details className="raw">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
-import { Child, Med, Prescription, measurementsApi, prescriptionsApi } from "../api";
+import { Child, Med, Prescription, prescriptionsApi } from "../api";
 import Logo from "../components/Logo";
 import PrescriptionForm, { validatePrescription } from "../components/PrescriptionForm";
 import Select from "../components/Select";
@@ -13,16 +13,7 @@ import {
   recordMeta,
   recordStatus,
   recordTitle,
-  todayIso,
 } from "../lib/format";
-
-interface GrowthDraft {
-  measured_on: string;
-  height_value: string;
-  height_unit: "cm" | "in";
-  weight_value: string;
-  weight_unit: "kg" | "lb";
-}
 
 type Filter = "all" | "prescriptions" | "notes" | "ending_soon";
 type Sort = "newest" | "oldest";
@@ -147,17 +138,6 @@ function RecordDetail({
   const [saveError, setSaveError] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
-  const [growthDraft, setGrowthDraft] = useState<GrowthDraft>({
-    measured_on: record.date_of_visit || todayIso(),
-    height_value: "",
-    height_unit: "cm",
-    weight_value: "",
-    weight_unit: "kg",
-  });
-  const [growthBusy, setGrowthBusy] = useState(false);
-  const [growthError, setGrowthError] = useState("");
-  const [growthSaved, setGrowthSaved] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     setPhotos([]);
@@ -181,15 +161,6 @@ function RecordDetail({
     setDraft(record);
     setErrors([]);
     setSaveError("");
-    setGrowthDraft({
-      measured_on: record.date_of_visit || todayIso(),
-      height_value: "",
-      height_unit: "cm",
-      weight_value: "",
-      weight_unit: "kg",
-    });
-    setGrowthError("");
-    setGrowthSaved(false);
     setEditing(true);
   };
 
@@ -201,41 +172,12 @@ function RecordDetail({
     setSaveError("");
     try {
       await prescriptionsApi.update(record.id!, draft);
-      if (
-        !growthSaved &&
-        draft.child_id &&
-        (growthDraft.height_value || growthDraft.weight_value)
-      ) {
-        await saveGrowth();
-      }
       onUpdated();
       setEditing(false);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Failed to save changes");
     } finally {
       setBusy(false);
-    }
-  };
-
-  const saveGrowth = async () => {
-    if (!draft.child_id) return;
-    setGrowthBusy(true);
-    setGrowthError("");
-    try {
-      await measurementsApi.create({
-        child_id: draft.child_id,
-        measured_on: growthDraft.measured_on,
-        height_value: growthDraft.height_value ? Number(growthDraft.height_value) : null,
-        height_unit: growthDraft.height_unit,
-        weight_value: growthDraft.weight_value ? Number(growthDraft.weight_value) : null,
-        weight_unit: growthDraft.weight_unit,
-        source: "manual",
-      });
-      setGrowthSaved(true);
-    } catch (e) {
-      setGrowthError(e instanceof Error ? e.message : "Failed to save growth data");
-    } finally {
-      setGrowthBusy(false);
     }
   };
 
@@ -261,106 +203,6 @@ function RecordDetail({
                 childList={childList}
                 onManageChildren={onManageChildren}
               />
-
-              <div className="review-card">
-                <div className="review-card-head">
-                  <span className="med-tag">
-                    <span className="med-tag-square" style={{ background: "#17C39A" }} />
-                    Height &amp; weight (optional)
-                  </span>
-                  <span className="review-card-hint">
-                    Goes to the child&apos;s growth chart when you save
-                  </span>
-                </div>
-
-                <div className="grid2">
-                  <label>
-                    Height
-                    <span className="unit-field">
-                      <input
-                        type="number"
-                        value={growthDraft.height_value}
-                        onChange={(e) =>
-                          setGrowthDraft({ ...growthDraft, height_value: e.target.value })
-                        }
-                      />
-                      <select
-                        value={growthDraft.height_unit}
-                        onChange={(e) =>
-                          setGrowthDraft({
-                            ...growthDraft,
-                            height_unit: e.target.value as "cm" | "in",
-                          })
-                        }
-                      >
-                        <option value="cm">cm</option>
-                        <option value="in">in</option>
-                      </select>
-                    </span>
-                  </label>
-                  <label>
-                    Weight
-                    <span className="unit-field">
-                      <input
-                        type="number"
-                        value={growthDraft.weight_value}
-                        onChange={(e) =>
-                          setGrowthDraft({ ...growthDraft, weight_value: e.target.value })
-                        }
-                      />
-                      <select
-                        value={growthDraft.weight_unit}
-                        onChange={(e) =>
-                          setGrowthDraft({
-                            ...growthDraft,
-                            weight_unit: e.target.value as "kg" | "lb",
-                          })
-                        }
-                      >
-                        <option value="kg">kg</option>
-                        <option value="lb">lb</option>
-                      </select>
-                    </span>
-                  </label>
-                </div>
-                <label>
-                  Measured on
-                  <input
-                    type="date"
-                    value={growthDraft.measured_on}
-                    onChange={(e) =>
-                      setGrowthDraft({ ...growthDraft, measured_on: e.target.value })
-                    }
-                  />
-                </label>
-
-                {growthError && <p className="field-hint error-text">{growthError}</p>}
-
-                <div className="actions form-actions">
-                  <button
-                    className="ghost"
-                    onClick={saveGrowth}
-                    disabled={
-                      growthBusy ||
-                      growthSaved ||
-                      !draft.child_id ||
-                      (!growthDraft.height_value && !growthDraft.weight_value)
-                    }
-                    title={
-                      !draft.child_id
-                        ? "Select a child first"
-                        : !growthDraft.height_value && !growthDraft.weight_value
-                        ? "Enter a height or weight to save"
-                        : undefined
-                    }
-                  >
-                    {growthSaved ? "Saved to growth chart" : "Save growth data now"}
-                  </button>
-                </div>
-                <p className="field-hint">
-                  Optional - saving changes below also saves this automatically.
-                </p>
-              </div>
 
               {errors.length > 0 && (
                 <div className="review-errors">

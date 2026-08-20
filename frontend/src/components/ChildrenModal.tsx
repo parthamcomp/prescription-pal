@@ -163,27 +163,29 @@ export default function ChildrenModal({
           {childList.map((c) => (
             <div className="profile-row" key={c.id}>
               {editingId === c.id ? (
-                <span className="profile-inline-edit">
+                <span className="profile-inline-edit edit-child-fields">
                   <input
+                    className="edit-child-name"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     autoFocus
                   />
                   <DatePicker
+                    className="edit-child-dob"
                     value={editDob}
                     onChange={setEditDob}
                     max={TODAY_ISO}
                     ariaLabel="Date of birth"
                   />
                   <Select
-                    className="field-select"
+                    className="field-select edit-child-sex"
                     value={editSex}
                     onChange={setEditSex}
                     options={SEX_OPTIONS}
                     ariaLabel="Sex"
                   />
                   <button
-                    className="profile-row-action"
+                    className="profile-row-action edit-child-submit"
                     onClick={saveEdit}
                     disabled={busyId === c.id}
                   >

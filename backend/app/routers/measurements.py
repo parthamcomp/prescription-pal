@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import get_data_owner_id
 from app.db import get_db
 from app.repositories import children as children_repo
-from app.repositories import jobs as jobs_repo
 from app.repositories import measurements as repo
 from app.routers.deps import require_owned_child
 from app.schemas import (
@@ -69,14 +68,6 @@ async def create_measurement(
 ):
     await require_owned_child(db, owner_id, body.child_id)
 
-    image_keys: list[str] = []
-    job = None
-    if body.source_job_id is not None:
-        job = await jobs_repo.get_for_user(db, owner_id, body.source_job_id)
-        if job is None:
-            raise HTTPException(status_code=404, detail="Upload not found")
-        image_keys = job.image_keys or []
-
     m = await repo.create_for_user(
         db,
         owner_id,
@@ -84,17 +75,9 @@ async def create_measurement(
         body.measured_on,
         height_to_cm(body.height_value, body.height_unit),
         weight_to_kg(body.weight_value, body.weight_unit),
-        body.source,
-        image_keys,
+        "manual",
+        [],
     )
-
-    if job is not None:
-        # Fires from either save path (this one or prescriptions') when a
-        # source_job_id is present - otherwise a photo saved only as a
-        # measurement (no prescription text worth keeping) stays stuck in
-        # "pending uploads" forever.
-        await jobs_repo.mark_saved(db, job)
-
     return await _to_out(db, m)
 
 
